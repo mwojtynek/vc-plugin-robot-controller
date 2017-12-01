@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27004.2006
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobotController", "RobotController\RobotController.csproj", "{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vcMotionPlannerCSharp", "..\..\rosi.plugin.pathplanner\vcMotionPlannerC#\vcMotionPlannerCSharp\vcMotionPlannerCSharp\vcMotionPlannerCSharp.csproj", "{B7EBEA8F-65E0-4B46-8119-807B60C9C061}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|x64.Build.0 = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|x64.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|x64.Build.0 = Release|Any CPU
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Debug|x64.ActiveCfg = Debug|x64
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Debug|x64.Build.0 = Debug|x64
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Release|Any CPU.ActiveCfg = Release|x64
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Release|Any CPU.Build.0 = Release|x64
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Release|x64.ActiveCfg = Release|x64
+		{B7EBEA8F-65E0-4B46-8119-807B60C9C061}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7BB97CC8-FFA9-408B-A0A8-E3D2A343EC70}
+	EndGlobalSection
+EndGlobal
