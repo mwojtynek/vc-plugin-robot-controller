@@ -59,6 +59,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PlanMotionActionItem.cs" />
+    <Compile Include="MotionPlanningManager.cs" />
     <Compile Include="RobotController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
