@@ -1,5 +1,6 @@
 ﻿using Caliburn.Micro;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
@@ -24,6 +25,10 @@ namespace RobotController
         private double timeElapsedBase = 0.0;
         private MotionPlan motionPlan = null;
         private IRobot globalRobot = null;
+        private IStatisticsManager statisticsManager = null;
+        private ISamplingTimer timer = null;
+        private double motionStartTime = 0.0;
+        private double motionEndTime = 0.0;
 
         //Create Constructor for class
         [ImportingConstructor]
@@ -32,6 +37,8 @@ namespace RobotController
             this.app = app;
             instance = this;
             this.app.Simulation.SimulationStarted += SetInitialTime;
+            this.app.Simulation.SimulationStarted += SimulationStarted;
+            this.app.Simulation.SimulationStopped += SimulationStopped;
             this.app.Simulation.SimulationRun += SimulationRunLogger;
         }
 
@@ -44,12 +51,42 @@ namespace RobotController
         {
         }
 
+
+        /*
+         * Get StatisticsManager instance, enable it and set an interval!
+         */
         public void Initialize()
         {
-            IoC.Get<ISimulationService>().PropertyChanged += JointConfigurationChanged;
+            //IoC.Get<ISimulationService>().PropertyChanged += JointConfigurationChanged;
             ms = IoC.Get<IMessageService>();
+            statisticsManager = this.app.StatisticsManager;
+            statisticsManager.IsEnabled = true;
+            statisticsManager.StatisticsInterval = 0.1;
             // Must be at least Warning, Info level is not printed
             ms.AppendMessage("DynamicRobotControl Plugin started initialization...", MessageLevel.Warning);
+        }
+
+        public void SimulationStarted(object sender, EventArgs e)
+        {
+            ms.AppendMessage("Simulation Started", MessageLevel.Warning);
+            timer = statisticsManager.CreateTimer(RegularTick, 0.1);
+            timer.StartStopTimer(true);
+        }
+
+        public void SimulationStopped(object sender, EventArgs e)
+        {
+            ms.AppendMessage("Simulation Stopped", MessageLevel.Warning);
+            if (timer != null)
+            {
+                timer.StartStopTimer(false);
+            }
+        }
+
+        public void RegularTick(object sender, EventArgs e)
+        {
+            ms.AppendMessage("Current Time: " + app.Simulation.Elapsed, MessageLevel.Warning);
+
+            interpolatePlannedMotion(globalRobot);
         }
 
         public MotionPlan InitializeMotionPlanner(IRobot robot)
@@ -115,6 +152,7 @@ namespace RobotController
             if (motionPlan.plan() >= 0)
             {
                 motionPlanResult = motionPlan.getLastResult();
+                motionStartTime = app.Simulation.Elapsed;
                 //motionPlan.interpolatePath()
                 return motionPlan.getLastResult();
             }
@@ -136,6 +174,83 @@ namespace RobotController
             ms.AppendMessage("Sender: " + sender.ToString() + " Time: " + e.Time, MessageLevel.Warning);
         }
 
+        private double[] kukaSorted(VectorOfDouble jointAngleCollection)
+        {
+            double[] firstJointAngleCollectionSorted = new double[7];
+            
+            //VectorOfDouble firstJointAngleCollectionSorted = new VectorOfDouble(jointAngleCollection.Count);
+            firstJointAngleCollectionSorted[0] = jointAngleCollection.ElementAt(0); //A1 0
+            firstJointAngleCollectionSorted[1] = jointAngleCollection.ElementAt(1); //A2 1
+            firstJointAngleCollectionSorted[2] = jointAngleCollection.ElementAt(3); //A3 6
+            firstJointAngleCollectionSorted[3] = jointAngleCollection.ElementAt(4); //A4 2
+            firstJointAngleCollectionSorted[4] = jointAngleCollection.ElementAt(5); //A5 3
+            firstJointAngleCollectionSorted[5] = jointAngleCollection.ElementAt(6); //A6 4
+            firstJointAngleCollectionSorted[6] = jointAngleCollection.ElementAt(2); //A7 5
+
+            return firstJointAngleCollectionSorted;
+        }
+        private void interpolatePlannedMotion (IRobot robot)
+        {
+            if(motionPlanResult!= null)
+            {
+                double[] startJointAngleCollection = kukaSorted(motionPlanResult.First());
+
+                IMotionTarget startMotionTarget = robot.RobotController.CreateTarget();
+                startMotionTarget.CartesianSpeed = 1.0;
+                startMotionTarget.AngularSpeed = 1.0;
+                // JointSpeed Value from 0-100
+                startMotionTarget.JointSpeed = 1.0;
+                startMotionTarget.MotionType = MotionType.Joint;
+                startMotionTarget.SetAllJointValues(startJointAngleCollection);
+                startMotionTarget.UseJointValues = true;
+
+
+                double[] goalJointAngleCollection = kukaSorted(motionPlanResult.Last());
+
+                IMotionTarget goalMotionTarget = robot.RobotController.CreateTarget();
+                goalMotionTarget.CartesianSpeed = 1.0;
+                goalMotionTarget.AngularSpeed = 1.0;
+                // JointSpeed Value from 0-100
+                goalMotionTarget.JointSpeed = 1.0;
+                goalMotionTarget.MotionType = MotionType.Joint;
+                goalMotionTarget.SetAllJointValues(goalJointAngleCollection);
+                goalMotionTarget.UseJointValues = true;
+                
+                //robot.RobotController.Evaluate();
+
+                IMotionInterpolator motionInterpolator = robot.RobotController.CreateMotionInterpolator();
+                motionInterpolator.AddTarget(startMotionTarget);
+                motionInterpolator.AddTarget(goalMotionTarget);
+
+                ms.AppendMessage("MotionInterpolator " + motionInterpolator.Targets.Count, MessageLevel.Warning);
+                ms.AppendMessage("GetCycleTime at 0: " + motionInterpolator.GetCycleTimeAt(0), MessageLevel.Warning);
+                ms.AppendMessage("GetCycleTime at 1: " + motionInterpolator.GetCycleTimeAt(1), MessageLevel.Warning);
+                ms.AppendMessage("GetCycleTime at " + motionInterpolator.Targets.Count + ": " + motionInterpolator.GetCycleTimeAt(motionInterpolator.Targets.Count-1), MessageLevel.Warning);
+
+                if (motionEndTime == 0.0)
+                {
+                    motionEndTime = motionInterpolator.GetCycleTimeAt(1);
+                    ms.AppendMessage("motion will end at: " + motionEndTime, MessageLevel.Warning);
+                }
+                
+                IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
+
+                motionInterpolator.Interpolate(app.Simulation.Elapsed-motionStartTime, ref refMotionTarget);
+                
+
+                IMotionTester motionTester = robot.RobotController.GetMotionTester();
+                motionTester.CurrentTarget = refMotionTarget;
+
+                if (app.Simulation.Elapsed > motionEndTime)
+                {
+                    motionStartTime = 0.0;
+                    motionEndTime = 0.0;
+                    motionPlanResult = null;
+                }
+
+             }
+        }
+
         public void JointConfigurationChanged(object sender, EventArgs e)
         {
 
@@ -150,6 +265,7 @@ namespace RobotController
                 {
                     //  app.WriteLine("Interpolating for " + (app.Simulation.Elapsed - timeElapsedBase));
                     double timeNow = app.Simulation.Elapsed - timeElapsedBase;
+
                     if (!motionPlan.isInterpolationDone(timeNow, 20))
                     {
                         VectorOfDouble result = motionPlan.interpolatePath(timeNow, 20.0);
