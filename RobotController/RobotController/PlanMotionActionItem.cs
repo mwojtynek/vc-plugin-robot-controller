@@ -32,13 +32,21 @@ namespace RobotController
             String robotName = (String)args.GetByIndex(0).Value;
             IRobot robot = app.Value.World.FindComponent(robotName).GetRobot();
 
-            RobotController.getInstance().MotionPlanningManagerInstance.InitializeMotionPlanner(robot, "S:\\git\\rosi.plugin.pathplanner\\robot_descriptions\\urdf\\lbr_iiwa_14_r820.urdf", "base_link", "tool0", "S:/git/rosi.plugin.pathplanner/cage-models/fleximir-model-even-less-detailed.stl");
+            MotionPlanningManager mpm = new MotionPlanningManager();
 
+            MotionPlan motionPlan = mpm.InitializeMotionPlanner(robot,
+                "S:\\git\\rosi.plugin.pathplanner\\robot_descriptions\\urdf\\lbr_iiwa_14_r820.urdf",
+                "base_link",
+                "tool0",
+                "S:/git/rosi.plugin.pathplanner/cage-models/fleximir-model-even-less-detailed.stl");
+
+            RobotController.getInstance().addMotionPlan(robot, motionPlan);
+                
             String startFrameName = (String)args.GetByIndex(1).Value;
 
             String goalFrameName = (String)args.GetByIndex(2).Value;
 
-            VectorOfDoubleVector resultMotion = RobotController.getInstance().MotionPlanningManagerInstance.planMotion(robot, startFrameName, goalFrameName);
+            VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan,  startFrameName, goalFrameName);
 
             foreach (VectorOfDouble vector in resultMotion)
             {

@@ -1,12 +1,10 @@
 ﻿using Caliburn.Micro;
+using Rosi.Components.Sensors;
+using SpeedAndSeparationMonitoring;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using VisualComponents.Create3D;
 using VisualComponents.UX.Shared;
 
@@ -15,13 +13,15 @@ namespace RobotController
     [Export(typeof(IPlugin))]
     public class RobotController : IPlugin
     {
+        private const double TICK_INTERVAL = 0.1;
         private IApplication app = null;
         private IMessageService ms = null;
         private static RobotController instance = null;
-        private double timeElapsedBase = 0.0;
         private IStatisticsManager statisticsManager = null;
         private ISamplingTimer timer = null;
-        public MotionPlanningManager MotionPlanningManagerInstance { get; }
+        private MotionPlanningManager MotionPlanningManagerInstance { get; }
+        private List<LaserScanner> laser_scanners = new List<LaserScanner>();
+        private Dictionary<IRobot, RobotParameters> robotList = new Dictionary<IRobot, RobotParameters>();
 
         //Create Constructor for class
         [ImportingConstructor]
@@ -43,6 +43,34 @@ namespace RobotController
         {
         }
 
+        public bool RegisterRobot(IRobot robot)
+        {
+            if (robotList.ContainsKey(robot))
+            {
+                return false;
+            }
+            else
+            {
+                robotList.Add(robot, new RobotParameters());
+                robotList[robot].speedCalculator = new SpeedCalculator(30, 0);
+                robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
+                robotList[robot].maxCartesianSpeed = 10.0;
+                return true;
+            }
+        }
+
+        public void addMotionPlan(IRobot robot, MotionPlan motionPlan)
+        {
+            try
+            {
+                robotList[robot].motionPlan = motionPlan;
+            } catch(KeyNotFoundException e)
+            {
+                ms.AppendMessage("Motion plan could not be added, maybe robot was not registred?", MessageLevel.Warning);
+                ms.AppendMessage(e.ToString(), MessageLevel.Error);
+            }
+        }
+
         /*
          * Get StatisticsManager instance, enable it and set an interval!
          */
@@ -52,9 +80,12 @@ namespace RobotController
             ms = IoC.Get<IMessageService>();
             statisticsManager = this.app.StatisticsManager;
             statisticsManager.IsEnabled = true;
-            statisticsManager.StatisticsInterval = 0.1;
+            statisticsManager.StatisticsInterval = TICK_INTERVAL;
             // Must be at least Warning, Info level is not printed
             ms.AppendMessage("DynamicRobotControl Plugin started initialization...", MessageLevel.Warning);
+
+            app.World.ComponentAdded += World_ComponentAdded;
+            app.World.ComponentRemoving += World_ComponentRemoving;
         }
 
         public void SimulationStarted(object sender, EventArgs e)
@@ -75,15 +106,33 @@ namespace RobotController
 
         public void RegularTick(object sender, EventArgs e)
         {
-            ms.AppendMessage("Current Time: " + app.Simulation.Elapsed, MessageLevel.Warning);
+            //ms.AppendMessage("Current Time: " + app.Simulation.Elapsed, MessageLevel.Warning);
 
-            foreach (IRobot robot in MotionPlanningManagerInstance.MotionPlanners.Keys)
+            foreach (IRobot robot in robotList.Keys)
             {
                 interpolatePlannedMotion(robot);
+                calculateCurrentRobotSpeed(robot, robot.RobotController.ToolCenterPoint);
+            }
+
+            foreach(LaserScanner laserScanner in laser_scanners)
+            {
+                laserScanner.Scan();
             }
         }
-        
 
+        private void calculateCurrentRobotSpeed(IRobot robot, Matrix currentTcpWorldPosition)
+        {
+            //Distance between last and current position
+            if (!robotList[robot].lastTcpWorldPosition.Equals(Matrix.Zero))
+            {
+                double distance = (robotList[robot].lastTcpWorldPosition.GetP() - robot.RobotController.ToolCenterPoint.GetP()).Length;
+                //[mm/s]
+                robotList[robot].currentCartesianSpeed = distance * 1 / TICK_INTERVAL;
+            }
+
+            robotList[robot].lastTcpWorldPosition = currentTcpWorldPosition;
+        }
+        
         private double[] kukaSorted(VectorOfDouble jointAngleCollection)
         {
             double[] firstJointAngleCollectionSorted = new double[7];
@@ -99,64 +148,133 @@ namespace RobotController
 
             return firstJointAngleCollectionSorted;
         }
+
+        private IMotionTarget createIMotionTargetForJointAngleConfiguration(IRobot robot, double[] jointAngleCollection, MotionType motionType, double cartesianSpeed)
+        {
+            IMotionTarget motionTarget = robot.RobotController.CreateTarget();
+
+            if(motionType == MotionType.Joint)
+            {
+                // JointSpeed Value from 0-100
+                if (robotList[robot].allowedCartesianSpeed > cartesianSpeed)
+                {
+                    motionTarget.JointSpeed = robotList[robot].maxCartesianSpeed / robotList[robot].allowedCartesianSpeed;
+                }
+                else
+                {
+                    motionTarget.JointSpeed = robotList[robot].maxCartesianSpeed / cartesianSpeed;
+                }
+                ms.AppendMessage("SetJoint Speed for motion to: " + motionTarget.JointSpeed, MessageLevel.Warning);
+            }
+            else if (motionType == MotionType.Linear)
+            {
+                if(robotList[robot].allowedCartesianSpeed > cartesianSpeed)
+                {
+                    motionTarget.CartesianSpeed = robotList[robot].allowedCartesianSpeed;
+                }
+                else
+                {
+                    motionTarget.CartesianSpeed = cartesianSpeed;
+                }
+                ms.AppendMessage("SetCartesian Speed for motion to: " + motionTarget.CartesianSpeed, MessageLevel.Warning);
+            }
+            motionTarget.MotionType = motionType;
+            motionTarget.SetAllJointValues(jointAngleCollection);
+            motionTarget.UseJointValues = true;
+
+            return motionTarget;
+        }
+
         private void interpolatePlannedMotion (IRobot robot)
         {
-            
-            if (MotionPlanningManagerInstance.MotionPlanners[robot].getLastResult() != null)
+            if (robotList[robot].motionPlan.getLastResult() != null)
             {
-                double[] startJointAngleCollection = kukaSorted(MotionPlanningManagerInstance.MotionPlanners[robot].getLastResult().First());
-
-                IMotionTarget startMotionTarget = robot.RobotController.CreateTarget();
-                startMotionTarget.CartesianSpeed = 1.0;
-                startMotionTarget.AngularSpeed = 1.0;
-                // JointSpeed Value from 0-100
-                startMotionTarget.JointSpeed = 1.0;
-                startMotionTarget.MotionType = MotionType.Joint;
-                startMotionTarget.SetAllJointValues(startJointAngleCollection);
-                startMotionTarget.UseJointValues = true;
-                
-                double[] goalJointAngleCollection = kukaSorted(MotionPlanningManagerInstance.MotionPlanners[robot].getLastResult().Last());
-
-                IMotionTarget goalMotionTarget = robot.RobotController.CreateTarget();
-                goalMotionTarget.CartesianSpeed = 1.0;
-                goalMotionTarget.AngularSpeed = 1.0;
-                // JointSpeed Value from 0-100
-                goalMotionTarget.JointSpeed = 1.0;
-                goalMotionTarget.MotionType = MotionType.Joint;
-                goalMotionTarget.SetAllJointValues(goalJointAngleCollection);
-                goalMotionTarget.UseJointValues = true;
-                
                 IMotionInterpolator motionInterpolator = robot.RobotController.CreateMotionInterpolator();
-                motionInterpolator.AddTarget(startMotionTarget);
-                motionInterpolator.AddTarget(goalMotionTarget);
+
+                foreach (VectorOfDouble jointAngleCollection in robotList[robot].motionPlan.getLastResult())
+                {
+                    IMotionTarget motionTarget = createIMotionTargetForJointAngleConfiguration(robot, kukaSorted(jointAngleCollection), MotionType.Linear, robotList[robot].maxCartesianSpeed);
+                    motionInterpolator.AddTarget(motionTarget);
+                }
 
                 //ms.AppendMessage("GetCycleTime at " + motionInterpolator.Targets.Count + ": " + motionInterpolator.GetCycleTimeAt(motionInterpolator.Targets.Count-1), MessageLevel.Warning);
 
-                if (robot.Component.GetProperty("motionEndTime") != null && robot.Component.GetProperty("motionEndTime").Equals("0.0"))
+                if (robotList[robot].currentMotionEndTime == 0.0)
                 {
-                    robot.Component.SetPropertyValues(Enumerable.Repeat<string>("motionStartTime", 1), Enumerable.Repeat<string>(app.Simulation.Elapsed.ToString(), 1));
-                    robot.Component.SetPropertyValues(Enumerable.Repeat<string>("motionEndTime", 1), Enumerable.Repeat<string>(motionInterpolator.GetCycleTimeAt(1).ToString(), 1));
-                    ms.AppendMessage("Motion for robot " + robot.Name + " will end at: " + motionInterpolator.GetCycleTimeAt(1), MessageLevel.Warning);
+                    robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
+                    robotList[robot].currentMotionEndTime = motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count-1);
+                    ms.AppendMessage("Motion for robot " + robot.Name + " will end at: " + motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1), MessageLevel.Warning);
                 }
                 
                 IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
 
-                motionInterpolator.Interpolate(app.Simulation.Elapsed- (double)robot.Component.GetProperty("motionStartTime").Value, ref refMotionTarget);
-                
+                motionInterpolator.Interpolate(app.Simulation.Elapsed - robotList[robot].currentMotionStartTime, ref refMotionTarget);
 
                 IMotionTester motionTester = robot.RobotController.GetMotionTester();
                 motionTester.CurrentTarget = refMotionTarget;
 
-                if (app.Simulation.Elapsed > (double)robot.Component.GetProperty("motionEndTime").Value)
+                if (app.Simulation.Elapsed > robotList[robot].currentMotionEndTime)
                 {
-                    
-                    robot.Component.SetPropertyValues(Enumerable.Repeat<string>("motionStartTime", 1), Enumerable.Repeat<string>("0.0", 1));
-                    robot.Component.SetPropertyValues(Enumerable.Repeat<string>("motionEndTime", 1), Enumerable.Repeat<string>("0.0", 1));
-                    MotionPlanningManagerInstance.MotionPlanners[robot].invalidatePlanner();
+
+                    robotList[robot].currentMotionStartTime = 0.0;
+                    robotList[robot].currentMotionEndTime = 0.0;
+                    robotList[robot].motionPlan.invalidatePlanner();
                 }
 
              }
         }
+
+        void OutputOnHumanDetected(object sender, LaserScannerHumanDetectedEventArgs args)
+        {
+            ms.AppendMessage("Detected Human with moveSpeed: " +args.MoveSpeed, MessageLevel.Warning);
+            try
+            {
+                IRobot robot = args.Robot.GetRobot();
+                robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 10.0);
+                ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
+                robotList[robot].currentSeperationDistance = robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed);
+                ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
+            } catch (NullReferenceException e)
+            {
+                ms.AppendMessage("Laser Scanner sent event without robot component", MessageLevel.Error);
+                ms.AppendMessage(e.ToString(), MessageLevel.Error);
+            }
+
+        }
+        
+        //TODO: Change the registration of laser scanners
+        void World_ComponentRemoving(object sender, ComponentRemovingEventArgs args)
+        {
+            LaserScanner found = null;
+            foreach (LaserScanner laser_scanner in laser_scanners)
+            {
+                if (laser_scanner.GetComponent().Equals(args.Component))
+                {
+                    // found
+                    found = laser_scanner;
+                }
+            }
+            if (found != null)
+            {
+                ms.AppendMessage("Removing LaserScanner from RobotController!", MessageLevel.Warning);
+                found.OnHumanDetected -= OutputOnHumanDetected;
+                laser_scanners.Remove(found);
+                ms.AppendMessage("LaserScanners: " + laser_scanners.Count(), MessageLevel.Warning);
+            }
+        }
+        void World_ComponentAdded(object sender, ComponentAddedEventArgs args)
+        {
+            IProperty prop = args.Component.GetProperty("LaserScanner");
+            if (prop != null && (prop.Value is bool) && (bool)prop.Value)
+            {
+                ms.AppendMessage("Adding LaserScanner from RobotController!", MessageLevel.Warning);
+                LaserScanner ls = new LaserScanner(args.Component, app);
+                ls.OnHumanDetected += OutputOnHumanDetected;
+                laser_scanners.Add(ls);
+                ms.AppendMessage("LaserScanners: " + laser_scanners.Count(), MessageLevel.Warning);
+            }
+        }
+        
 
     }
 }

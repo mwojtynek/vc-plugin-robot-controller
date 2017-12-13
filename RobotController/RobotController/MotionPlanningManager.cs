@@ -12,14 +12,6 @@ namespace RobotController
 {
     public class MotionPlanningManager
     {
-        public Dictionary<IRobot, MotionPlan> MotionPlanners { get; }
-
-        public MotionPlanningManager()
-        {
-            MotionPlanners = new Dictionary<IRobot, MotionPlan>();
-
-        }
-
         /// <summary>
         /// Initialize a motionPlanner instance for a specific robot. 
         /// This instance is stored in the dictonary of the class which manages and maintains the instances of all motionPlanners of all robots.
@@ -29,7 +21,7 @@ namespace RobotController
         /// <param name="kinChainStart"></param>The name of the first part in the kinematic chain.
         /// <param name="kinChainEnd"></param>The name of the last part in the kinematic chain.
         /// <param name="pathToObstacleFile"></param>The path to an obstacle model file (e.g. stl format).
-        public void InitializeMotionPlanner(IRobot robot, String pathToRobotUrdfDescriptionFile, String kinChainStart, String kinChainEnd, String pathToObstacleFile)
+        public MotionPlan InitializeMotionPlanner(IRobot robot, String pathToRobotUrdfDescriptionFile, String kinChainStart, String kinChainEnd, String pathToObstacleFile)
         {
             if (robot.Component.GetProperty("motionStartTime") == null) { 
                 robot.Component.CreateProperty(typeof(double), PropertyConstraintType.NotSpecified, "motionStartTime");
@@ -51,34 +43,22 @@ namespace RobotController
             description.setRobotRotation(wpr.X, wpr.Y, wpr.Z);
 
             motionPlan.addObstacle(pathToObstacleFile);
-            if (!MotionPlanners.ContainsKey(robot))
-            {
-                MotionPlanners.Add(robot, motionPlan);
-            }
-        }
 
-        /// <summary>
-        /// Add additional obstacles to a motionPlanner instance of the specified robot.
-        /// </summary>
-        /// <param name="robot"></param>The robot for which the obstacle should be relevant.
-        /// <param name="pathToObstacleFile"></param>The path to an obstacle model file (e.g. stl format).
-        public void addObstacleToRobot(IRobot robot, String pathToObstacleFile)
-        {
-            MotionPlanners[robot].addObstacle(pathToObstacleFile);
+            return motionPlan;
         }
-
 
         /// <summary>
         /// Trigger and receive a concrete motionPlan from startFrame to goalFrame.
         /// Obstacles must be added to the motionPlanner instance of the robot before.
         /// </summary>
         /// <param name="robot"></param>The robot for which a motion should be planned.
+        /// <param name="motionPlan"></param>The preconfigured motionPlan which should be used.
         /// <param name="startFrame"></param>The frame where the motion should start.
         /// <param name="goalFrame"></param>The frame where the motion should end.
         /// <returns></returns>
-        public VectorOfDoubleVector planMotion(IRobot robot, String startFrame, String goalFrame)
+        public VectorOfDoubleVector planMotion(IRobot robot, MotionPlan motionPlan, String startFrame, String goalFrame)
         {
-            MotionPlanRobotDescription description = MotionPlanners[robot].getMotionPlanRobotDescription();
+            MotionPlanRobotDescription description = motionPlan.getMotionPlanRobotDescription();
 
             VectorOfDouble vec = new VectorOfDouble(robot.Controller.Joints.Count);
             vec.Add(robot.Controller.Joints[0].Value);
@@ -106,19 +86,19 @@ namespace RobotController
                                                                 goalPosition.GetP().Y / 1000,
                                                                 goalPosition.GetP().Z / 1000,
                                                                 goalRotation.X, goalRotation.Y, goalRotation.Z);
-            
-            MotionPlanners[robot].setStartPosition(startJointAngles);
-            MotionPlanners[robot].setGoalPosition(goalJointAngles);
 
-            MotionPlanners[robot].setSolveTime(10.0);
-            MotionPlanners[robot].setStateValidityCheckingResolution(0.001);
+            motionPlan.setStartPosition(startJointAngles);
+            motionPlan.setGoalPosition(goalJointAngles);
+
+            motionPlan.setSolveTime(10.0);
+            motionPlan.setStateValidityCheckingResolution(0.001);
             //motionPlan.setReportFirstExactSolution(true);
-            MotionPlanners[robot].setPlannerByString("RRTConnect");
+            motionPlan.setPlannerByString("RRTConnect");
 
-            if (MotionPlanners[robot].plan() >= 0)
+            if (motionPlan.plan() >= 0)
             {
                 //motionPlan.interpolatePath()
-                return MotionPlanners[robot].getLastResult();
+                return motionPlan.getLastResult();
             }
             return null;
         }
