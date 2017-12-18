@@ -75,6 +75,10 @@
       <Project>{b7ebea8f-65e0-4b46-8119-807b60c9c061}</Project>
       <Name>vcMotionPlannerCSharp</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\rosi.plugin.ssm\SpeedAndSeparationMonitoringTest\SpeedAndSeparationMonitoringTest.csproj">
+      <Project>{db7216ac-336c-4b8c-ab60-90fd52d74fbb}</Project>
+      <Name>SpeedAndSeparationMonitoringTest</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\rosi.plugin.ssm\SpeedAndSeparationMonitoring\SpeedAndSeparationMonitoring.csproj">
       <Project>{286abc6b-26f5-444a-9b92-ff271cddc7c5}</Project>
       <Name>SpeedAndSeparationMonitoring</Name>
