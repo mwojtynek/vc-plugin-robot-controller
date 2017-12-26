@@ -13,7 +13,7 @@ using VisualComponents.Create3D;
 // Robot Description: "C:\\Users\\Sinan\\Desktop\\rosi.plugin.pathplanner\\robot_descriptions\\urdf\\lbr_iiwa_14_r820.urdf"
 // Obstacles: "C:/Users/Sinan/Desktop/rosi.plugin.pathplanner/cage-models/fleximir-model-even-less-detailed.stl"
 
-namespace RobotController
+namespace CustomController
 {
     class Pathplanner
     {

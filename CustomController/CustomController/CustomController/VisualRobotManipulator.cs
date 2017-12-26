@@ -12,7 +12,7 @@ using System.ComponentModel;
 using Debugger;
 
 
-namespace RobotController
+namespace CustomController
 {
     /* Aufgabe 1: Lauschen, was für neue Komponente hinzukommen
         Aus den neuen Komponenten, sollen jene ausgewählt und manipuliert werden, die dazu mit besonderer Behaviour markiert wurden.
@@ -181,6 +181,13 @@ namespace RobotController
             {
                 IFrameFeature goal = component.RootNode.RootFeature.CreateFeature<IFrameFeature>();
                 goal.Name = "goalFrame";
+            }
+
+            //DEBUG FRAME
+            if (component.FindFeature("debugFrame") == null)
+            {
+                IFrameFeature goal = component.RootNode.RootFeature.CreateFeature<IFrameFeature>();
+                goal.Name = "debugFrame";
             }
 
         }
