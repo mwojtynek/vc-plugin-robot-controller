@@ -59,13 +59,29 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="RegisterRobotActionItem.cs" />
+    <Compile Include="PlanMotionActionItem.cs" />
+    <Compile Include="MotionPlanningManager.cs" />
     <Compile Include="RobotController.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="RobotParameters.cs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\rosi.components\Sensors\LaserScanner\Rosi.Components.Sensors.LaserScanner\Rosi.Components.Sensors.LaserScanner\Rosi.Components.Sensors.LaserScanner.csproj">
+      <Project>{A96BD465-7113-49E9-821E-DDCF93953675}</Project>
+      <Name>Rosi.Components.Sensors.LaserScanner</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\rosi.plugin.pathplanner\vcMotionPlannerC#\vcMotionPlannerCSharp\vcMotionPlannerCSharp\vcMotionPlannerCSharp.csproj">
       <Project>{b7ebea8f-65e0-4b46-8119-807b60c9c061}</Project>
       <Name>vcMotionPlannerCSharp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\rosi.plugin.ssm\SpeedAndSeparationMonitoringTest\SpeedAndSeparationMonitoringTest.csproj">
+      <Project>{db7216ac-336c-4b8c-ab60-90fd52d74fbb}</Project>
+      <Name>SpeedAndSeparationMonitoringTest</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\rosi.plugin.ssm\SpeedAndSeparationMonitoring\SpeedAndSeparationMonitoring.csproj">
+      <Project>{286abc6b-26f5-444a-9b92-ff271cddc7c5}</Project>
+      <Name>SpeedAndSeparationMonitoring</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
