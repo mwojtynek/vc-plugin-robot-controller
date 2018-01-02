@@ -42,9 +42,9 @@ namespace RobotController
 
             RobotController.getInstance().addMotionPlan(robot, motionPlan);
                 
-            String startFrameName = (String)args.GetByIndex(1).Value;
+            String startFrameName = args.GetByIndex(1).Value.ToString();
 
-            String goalFrameName = (String)args.GetByIndex(2).Value;
+            String goalFrameName = args.GetByIndex(2).Value.ToString();
 
             VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan,  startFrameName, goalFrameName);
 

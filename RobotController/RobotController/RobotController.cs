@@ -47,17 +47,20 @@ namespace RobotController
         {
             if (robotList.ContainsKey(robot))
             {
-                return false;
+                robotList.Remove(robot);
             }
-            else
+            robotList.Add(robot, new RobotParameters());
+            robotList[robot].speedCalculator = new SpeedCalculator(30, 0);
+            robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
+            robotList[robot].maxCartesianSpeed = 240.0;
+            robotList[robot].allowedCartesianSpeed = 240.0;
+
+            if(robot.Component.GetProperty("moving") == null)
             {
-                robotList.Add(robot, new RobotParameters());
-                robotList[robot].speedCalculator = new SpeedCalculator(30, 0);
-                robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
-                robotList[robot].maxCartesianSpeed = 2000.0;
-                robotList[robot].allowedCartesianSpeed = 240.0;
-                return true;
+                robot.CreateProperty(typeof(Boolean), PropertyConstraintType.AllValuesAllowed, "moving");
+                robot.Component.GetProperty("moving").Value = false;
             }
+            return true;
         }
 
         public void addMotionPlan(IRobot robot, MotionPlan motionPlan)
@@ -108,7 +111,7 @@ namespace RobotController
                     robotList[robot].currentMotionStartTime = 0.0;
                     robotList[robot].currentMotionEndTime = 0.0;
                     robotList[robot].currentTarget = null;
-                    robotList[robot].motionList.Clear();
+                    robotList[robot].motionList = null;
                     robotList[robot].motionPlan = null;
                     robotList[robot].motionTester = null;
                     robotList[robot].seperationCalculator = null;
@@ -141,6 +144,7 @@ namespace RobotController
                 double distance = (robotList[robot].lastTcpWorldPosition.GetP() - robot.RobotController.ToolCenterPoint.GetP()).Length;
                 //[mm/s]
                 robotList[robot].currentCartesianSpeed = distance * 1 / TICK_INTERVAL;
+                //ms.AppendMessage("Current Cartesian Speed measured: " + robotList[robot].currentCartesianSpeed, MessageLevel.Warning);
             }
 
             robotList[robot].lastTcpWorldPosition = currentTcpWorldPosition;
@@ -243,15 +247,15 @@ namespace RobotController
             robotList[robot].motionInterpolator.AddTarget(robotList[robot].currentTarget);
 
             robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
-            ms.AppendMessage("CurrentMotionStartTime set to: " + robotList[robot].currentMotionStartTime, MessageLevel.Warning);
+            //ms.AppendMessage("CurrentMotionStartTime set to: " + robotList[robot].currentMotionStartTime, MessageLevel.Warning);
             robotList[robot].currentMotionEndTime = app.Simulation.Elapsed + robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionInterpolator.Targets.Count - 1);
-            ms.AppendMessage("CurrentMotionEndTime set to: " + robotList[robot].currentMotionEndTime, MessageLevel.Warning);
-            ms.AppendMessage("Finished motion preparing at simulation time: " + app.Simulation.Elapsed, MessageLevel.Warning);
+            //ms.AppendMessage("CurrentMotionEndTime set to: " + robotList[robot].currentMotionEndTime, MessageLevel.Warning);
+            //ms.AppendMessage("Finished motion preparing at simulation time: " + app.Simulation.Elapsed, MessageLevel.Warning);
         }
 
         private void interpolatePlannedMotion (IRobot robot)
         {
-            if (robotList[robot].motionPlan.getLastResult() != null)
+            if (robotList[robot].motionPlan != null && robotList[robot].motionPlan.getLastResult() != null)
             {
                 //ms.AppendMessage("GetCycleTime at " + motionInterpolator.Targets.Count + ": " + motionInterpolator.GetCycleTimeAt(motionInterpolator.Targets.Count-1), MessageLevel.Warning);
                 
@@ -273,68 +277,29 @@ namespace RobotController
 
                 if (app.Simulation.Elapsed < robotList[robot].currentMotionEndTime)
                 {
-                    if (robotList[robot].currentSeperationDistance < 1.0)
-                    {
-                        ms.AppendMessage("Human too close. Robot stopped movements...", MessageLevel.Warning);
-                    }
-                    else
-                    {
-                        //Now interpolate until currentTarget is reached
-                        IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
+                    robot.Component.GetProperty("moving").Value = true;
+                    //Now interpolate until currentTarget is reached
+                    IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
 
-                        robotList[robot].motionInterpolator.Interpolate(app.Simulation.Elapsed - robotList[robot].currentMotionStartTime, ref refMotionTarget);
-                        ms.AppendMessage("Executing motion with speed:" + refMotionTarget.CartesianSpeed, MessageLevel.Warning);
+                    robotList[robot].motionInterpolator.Interpolate(app.Simulation.Elapsed - robotList[robot].currentMotionStartTime, ref refMotionTarget);
+                    //ms.AppendMessage("Executing motion with speed:" + refMotionTarget.CartesianSpeed, MessageLevel.Warning);
 
-                        robotList[robot].motionTester.CurrentTarget = refMotionTarget;
-                    }
+                    robotList[robot].motionTester.CurrentTarget = refMotionTarget;
+                    
                 } else
                 {
                     //Get next target from list - if there are targets left
                     if (robotList[robot].motionList.IndexOfValue(robotList[robot].currentTarget) + 1 < robotList[robot].motionList.Count)
                     {
+                        robot.Component.GetProperty("moving").Value = true;
                         robotList[robot].currentTarget = robotList[robot].motionList.ElementAt(robotList[robot].motionList.IndexOfValue(robotList[robot].currentTarget) + 1).Value;
                         prepareNextMotion(robot);
-                        //if(app.Simulation.Elapsed + TICK_INTERVAL > robotList[robot].currentMotionEndTime)
-                        //{
-                        //    IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
-
-                        //    robotList[robot].motionInterpolator.Interpolate(app.Simulation.Elapsed, ref refMotionTarget);
-                            
-                        //    robotList[robot].motionTester.CurrentTarget = refMotionTarget;
-                        //}
+                        
+                    } else
+                    {
+                        robot.Component.GetProperty("moving").Value = false;
                     }
                 }
-
-
-                //foreach (VectorOfDouble jointAngleCollection in robotList[robot].motionPlan.getLastResult())
-                //{
-                //    IMotionTarget motionTarget = createIMotionTargetForJointAngleConfiguration(robot, kukaSorted(jointAngleCollection), MotionType.Linear, robotList[robot].maxCartesianSpeed);
-                //    robotList[robot].motionInterpolator.AddTarget(motionTarget);
-                //}
-
-                ////First interpolation run - setting up
-                //if (robotList[robot].currentMotionEndTime == 0.0)
-                //{
-                //    robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
-                //    robotList[robot].currentMotionEndTime = robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count-1);
-                //    ms.AppendMessage("Motion for robot " + robot.Name + " will end at: " + robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1), MessageLevel.Warning);
-                //}
-
-                //IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
-
-                //robotList[robot].motionInterpolator.Interpolate(app.Simulation.Elapsed - robotList[robot].currentMotionStartTime, ref refMotionTarget);
-
-                //IMotionTester motionTester = robot.RobotController.GetMotionTester();
-                //motionTester.CurrentTarget = refMotionTarget;
-
-                ////Last interpolation run - clean up
-                //if (app.Simulation.Elapsed > robotList[robot].currentMotionEndTime)
-                //{
-                //    robotList[robot].currentMotionStartTime = 0.0;
-                //    robotList[robot].currentMotionEndTime = 0.0;
-                //    robotList[robot].motionPlan.invalidatePlanner();
-                //    robotList[robot].motionInterpolator.Dispose();
-                //}
 
             }
         }
@@ -346,6 +311,9 @@ namespace RobotController
         /// <param name="robot"></param>
         private void calculateInterpolation(IRobot robot, double samplingInterval)
         {
+
+            robot.Component.GetProperty("moving").Value = true;
+
             if (robotList[robot].motionInterpolator == null)
             {
                 robotList[robot].motionInterpolator = robot.RobotController.CreateMotionInterpolator();
@@ -375,19 +343,32 @@ namespace RobotController
 
         void OutputOnHumanDetected(object sender, LaserScannerHumanDetectedEventArgs args)
         {
-            ms.AppendMessage("Detected Human with moveSpeed: " +args.MoveSpeed, MessageLevel.Warning);
+            //ms.AppendMessage("Detected Human with moveSpeed: " +args.MoveSpeed, MessageLevel.Warning);
             try
             {
                 IRobot robot = args.Robot;
-                robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 10.0);
-                ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
-                robotList[robot].currentSeperationDistance = robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed);
-                ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
+                if (robotList.ContainsKey(robot))
+                {
+                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
+                    //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
+
+                    robotList[robot].currentSeperationDistance = robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed);
+                    //ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
+
+                    robotList[robot].closestDistanceToHuman = (args.HumanPosition - robot.RobotController.ToolCenterPoint.GetP()).Length;
+                    //ms.AppendMessage("MeasuredDistance: " + robotList[robot].closestDistanceToHuman, MessageLevel.Warning);
+                }
             } catch (NullReferenceException e)
             {
                 ms.AppendMessage("Laser Scanner sent event without robot component", MessageLevel.Error);
                 ms.AppendMessage(e.ToString(), MessageLevel.Error);
+            } catch (KeyNotFoundException e)
+            {
+                ms.AppendMessage("Key not found", MessageLevel.Error);
+                ms.AppendMessage(e.ToString(), MessageLevel.Error);
+
             }
+
 
         }
         

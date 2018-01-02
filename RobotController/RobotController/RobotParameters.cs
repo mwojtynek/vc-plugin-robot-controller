@@ -24,6 +24,7 @@ namespace RobotController
         public SortedList<double, IMotionTarget> motionList = null;
         public IMotionTarget currentTarget = null;
         public IMotionTester motionTester = null;
+        public double closestDistanceToHuman = 100.0;
 
     }
 }

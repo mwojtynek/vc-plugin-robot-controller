@@ -72,6 +72,11 @@ namespace RobotController
             //TODO: Make those frames global?
             IFeature startNode = robot.Component.FindFeature(startFrame);
             IFeature goalNode = robot.Component.FindFeature(goalFrame);
+            if(startNode == null || goalNode == null)
+            {
+                IoC.Get<IMessageService>().AppendMessage("Start Or Goal Node was null", MessageLevel.Error);
+                return null;
+            }
 
             Matrix startPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(startNode);
             Matrix goalPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(goalNode);
