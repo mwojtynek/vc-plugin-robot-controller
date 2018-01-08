@@ -74,6 +74,8 @@ namespace CustomController
                 //manip.robot.Component.FindFeature("debugFrame").TransformationChanged += frameChanged;
                 setFromStartFrame();
                 setFromGoalFrame();
+                manip.robot.Component.FindFeature("startFrame").TransformationChanged += (e, a) => { setFromStartFrame(); };
+                manip.robot.Component.FindFeature("goalFrame").TransformationChanged += (e, a) => { setFromGoalFrame(); };
             } catch(Exception e)
             {
                 debug(e.Message);
@@ -174,7 +176,7 @@ private void jointChanged(object sender, EventArgs e)
             }
         }
 
-        private void setFromStartFrame() {
+        public void setFromStartFrame() {
             //setStart(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("startFrame")));
 
             kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("startFrame")));
@@ -182,7 +184,7 @@ private void jointChanged(object sender, EventArgs e)
             calcDelta();
         }
 
-        private void setFromGoalFrame() {
+        public void setFromGoalFrame() {
             //setGoal(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("goalFrame")));
 
             kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("goalFrame")));
