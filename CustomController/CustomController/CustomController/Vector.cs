@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace CustomController
 {
-    class Vector
+    public class Vector
     {
         private int _n;
         private double[] vals;
@@ -75,65 +75,64 @@ namespace CustomController
             }
         }
 
-        private void checkLength(Vector second)
+        private static void checkLength(Vector a, Vector b)
         {
-            if (second.Length != Length)
+            if (a.Length != b.Length)
             {
                 throw new ArgumentException();
             }
 
         }
 
-        public Vector add(Vector second)
+        public static Vector operator +(Vector a, Vector b)
         {
-            checkLength(second);
+            checkLength(a,b);
 
-            Vector result = new Vector(Length);
+            Vector result = new Vector(a.Length);
 
-            for (int i = 0; i < Length; i++)
+            for (int i = 0; i < a.Length; i++)
             {
-                result[i] = vals[i] + second[i];
+                result[i] = a[i] + b[i];
             }
 
             return result;
         }
 
-        public Vector sub(Vector second)
+        public static Vector operator -(Vector a, Vector b)
         {
-            checkLength(second);
+            checkLength(a,b);
 
-            Vector result = new Vector(Length);
+            Vector result = new Vector(a.Length);
 
-            for (int i = 0; i < Length; i++)
+            for (int i = 0; i < a.Length; i++)
             {
-                result[i] = vals[i] - second[i];
+                result[i] = a[i] - b[i];
             }
 
             return result;
         }
 
-        public Vector multiply(Vector second)
+        public static double operator *(Vector a, Vector b)
         {
-            checkLength(second);
+            checkLength(a,b);
 
-            Vector result = new Vector(Length);
-
-            for (int i = 0; i < Length; i++)
+            double sum = 0;
+            for (int i = 0; i < a.Length; i++)
             {
-                result[i] = vals[i] * second[i];
+                sum += a[i] * b[i];
             }
 
-            return result;
+            return sum;
 
         }
 
-        public Vector multiply(double factor)
+        public static Vector operator *(Vector a, double factor)
         {
-            Vector result = new Vector(Length);
+            Vector result = new Vector(a.Length);
 
-            for (int i = 0; i < Length; i++)
+            for (int i = 0; i < a.Length; i++)
             {
-                result[i] = vals[i] * factor;
+                result[i] = a[i] * factor;
             }
 
             return result;
@@ -153,7 +152,7 @@ namespace CustomController
             }
             set
             {
-                this.multiply(value / Norm);
+                vals = (this * (value / Norm)).vals;
             }
         }
     }
