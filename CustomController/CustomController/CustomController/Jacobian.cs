@@ -9,7 +9,7 @@ using VisualComponents.Create3D;
 
 namespace CustomController
 {
-    class Jacobian
+    public class Jacobian
     {
 
         private int _m = 6;
@@ -25,19 +25,19 @@ namespace CustomController
             }
         }
 
-        public double[] multiply(double[] input)
+        public Vector multiply(Vector input)
         {
-            if(input.Length != _m)
+            if(input.Length != _n)
             {
                 throw new ArgumentException();
             }
 
-            double[] result = new double[_m];
+            Vector result = new Vector(_m);
 
             // Matrix-Vector Multiplikation (Skalarprodukt von Zeile und einziger Spalte)
             for (int element = 0; element < _m; element++)
             {
-                //Skalarprodukt
+                //Skalarprodukt - theoretisch kann sum weggelassen werden. Ich mach mir mal vor, dass das so schneller bearbeitet wird...
                 double sum = 0;
                 for (int basis_k = 0; basis_k < _n; basis_k++)
                 {
@@ -64,7 +64,7 @@ namespace CustomController
 
         
 
-        public static Jacobian calcApproJacobian(IMotionTarget kinematics, double[] joints)
+        public static Jacobian calcApproJacobian(IMotionTarget kinematics, Vector joints)
         {
             double samplestep = 1;
             if (kinematics.JointCount != joints.Length)
@@ -72,13 +72,13 @@ namespace CustomController
                 throw new ArgumentException();
             }
             Jacobian jacob = new Jacobian(joints.Length);
-            Vector current = new Vector(joints);
+            
             Vector canonic;
             for (int k = 0; k < jacob._n; k++)
             {
                 canonic = Vector.canonic(jacob._n, k, samplestep);
-                Vector ek = CustomController.FK(kinematics, current).sub(CustomController.FK(kinematics, current.sub(canonic)));
-                jacob.setBasis(k, ek.multiply(1/samplestep));
+                Vector ek = StaticKinetics.FK(kinematics, joints) - StaticKinetics.FK(kinematics, joints - canonic);
+                jacob.setBasis(k, ek * (1/samplestep));
             }
             return jacob;
         }

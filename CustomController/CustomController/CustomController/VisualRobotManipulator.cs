@@ -17,9 +17,10 @@ namespace CustomController
     /* Aufgabe 1: Lauschen, was für neue Komponente hinzukommen
         Aus den neuen Komponenten, sollen jene ausgewählt und manipuliert werden, die dazu mit besonderer Behaviour markiert wurden.
        Aufgabe 2: Einen Manipulator zuweisen
-     */ 
+     */
 
-    class VisualRobotManipulatorCollector
+    
+    public class VisualRobotManipulatorCollector
     {
 
         static readonly string BEHAVIOR_NAME = "CustomController";
@@ -69,6 +70,16 @@ namespace CustomController
             if (isCustomController(e.Component)) {
                 addRobot(e.Component.Name, e.Component);
             }
+            e.Component.Behaviors.ForEach(addListener);
+        }
+
+        private void addListener(IBehavior b)
+        {
+            if (b.Type == BehaviorType.Note)
+            {
+                b.GetProperty("Name").PropertyChanged += NameChange;
+                b.GetProperty("Note").PropertyChanged += NoteChange;
+            }
         }
 
         private void componentRenamed(object sender, PropertyChangedEventArgs e)
@@ -86,9 +97,7 @@ namespace CustomController
                 }
             }
         }
-
-
-
+        
         // TODO check if it was a manipulation flag 
         private void behaviorRemoved(object sender, BehaviorRemovingEventArgs e)
         {
@@ -140,9 +149,11 @@ namespace CustomController
         }
 
         private void removeRobot(string name) {
+            CustomController manip = controllers[name];
             robots.Remove(name);
             if (controllers.Remove(name))
             {
+                manip.kill();
                 IoC.Get<IMessageService>().AppendMessage(name + " entfernt", MessageLevel.Warning);
             }
         }
@@ -159,10 +170,20 @@ namespace CustomController
             
             IoC.Get<IMessageService>().AppendMessage(oldName + " geändert in " + newName, MessageLevel.Warning);
         }
-        
+
+        public CustomController getController(string name)
+        {
+            try
+            {
+                return controllers[name];
+            } catch
+            {
+                return null;
+            }
+        }
     }
 
-    class VisualRobotManipulator {
+    public class VisualRobotManipulator {
         private IApplication _app;
         public ISimComponent component;
         public VisualRobotManipulator(IApplication app, string componentName)
@@ -181,13 +202,6 @@ namespace CustomController
             {
                 IFrameFeature goal = component.RootNode.RootFeature.CreateFeature<IFrameFeature>();
                 goal.Name = "goalFrame";
-            }
-
-            //DEBUG FRAME
-            if (component.FindFeature("debugFrame") == null)
-            {
-                IFrameFeature goal = component.RootNode.RootFeature.CreateFeature<IFrameFeature>();
-                goal.Name = "debugFrame";
             }
 
         }
@@ -222,7 +236,7 @@ namespace CustomController
             }
         }
 
-        public double[] getConfiguration() {
+        public double[] getConfigurationDouble() {
             isRobot(true);
             double[] jointVals = new double[jointCount];
             IList<IJoint> joints = component.GetRobot().RobotController.Joints;
@@ -233,26 +247,45 @@ namespace CustomController
             return jointVals;
         }
 
+        public Vector getConfiguration(){
+            return new Vector(getConfigurationDouble());
+        }
+
         public void setConfiguration(double[] joints)
         {
             isRobot(true);
             component.GetRobot().RobotController.SetJointValues(joints);
         }
 
+        public void setConfiguration(Vector joints) {
+            setConfiguration(joints.Elements);
+        }
+
+    }
+
+    public interface ICustomController {
+        CustomController getController(string name);
     }
 
     // Kann auch in die Collector klasse eingepflegt werden.
     [Export(typeof(IPlugin))]
-    class CollectorPlugin : IPlugin
+    [Export(typeof(ICustomController))]
+    class CollectorPlugin : IPlugin, ICustomController
     {
         VisualRobotManipulatorCollector collector;
         [ImportingConstructor]
         public CollectorPlugin([Import(typeof(IApplication))] IApplication app)
         {
             collector = new VisualRobotManipulatorCollector(app);
+            IoC.Get<IMessageService>().AppendMessage("CustomController with Collector loaded...", MessageLevel.Warning);
         }
         public void Exit()
         {
+        }
+
+        public CustomController getController(string name)
+        {
+            return collector.getController(name);
         }
 
         public void Initialize()

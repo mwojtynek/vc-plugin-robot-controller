@@ -11,32 +11,30 @@ using Debugger;
 
 namespace CustomController
 {
-    class CustomController
+    public partial class CustomController
     {
         public VisualRobotManipulator manip;
-
-        private IMotionInterpolator interpol;
-        private IMotionTarget startTarget;
-        private IMotionTarget goalTarget;
-
+        
         private IMotionTarget kinematics;
-        double[] startJoints;
-        double[] goalJoints;
-        double[] deltaJoints;
+        Vector deltaJoints;
+        double lastDistance;
+        double lastSpeed = 400;
+
+        private double maximumSpeed = 400;
+
+        // Dieser Block sollte so irgendwann verschwinden
+        Vector startJoints;
+        Vector goalJoints;
         bool reset = false;
         bool finished = false;
-        double lastDistance;
-        private double demandedSpeed = 200;
-
+        private double demandedSpeed = 400;
+        
+        
         private IApplication _app;
+        
+        private bool killed = false;
 
-        private double startTime = 0;
-        private double haltedTime = 0;
-
-        public readonly double SAMPLE_TIME = 0.01;
-
-        //Auslagern
-        ISamplingTimer st;
+        private ISimulationTicker ticker;
 
         public CustomController(IApplication app, VisualRobotManipulator manip)
         {
@@ -47,286 +45,71 @@ namespace CustomController
 
                 kinematics = manip.robot.RobotController.CreateTarget();
                 kinematics.UseJointValues = false;
-
-                startJoints = new double[manip.robot.RobotController.Joints.Count];
-                goalJoints = new double[manip.robot.RobotController.Joints.Count];
-
-                /*
-                interpol = manip.robot.RobotController.CreateMotionInterpolator();
-
                 
-
-                startTarget = manip.robot.RobotController.CreateTarget();
-                startTarget.CartesianSpeed = 2500.0;
-                startTarget.AngularSpeed = 100.0;
-                startTarget.JointSpeed = 1.0;
-                startTarget.MotionType = MotionType.Joint;
-
-                goalTarget = manip.robot.RobotController.CreateTarget();
-                goalTarget.CartesianSpeed = 2500.0;
-                goalTarget.AngularSpeed = 100.0;
-                goalTarget.JointSpeed = 15.0;
-                goalTarget.MotionType = MotionType.Joint;
-                */
-
-                //manip.robot.Component.FindFeature("startFrame").TransformationChanged += frameChanged;
-                //manip.robot.Component.FindFeature("goalFrame").TransformationChanged += frameChanged;
-                //manip.robot.Component.FindFeature("debugFrame").TransformationChanged += frameChanged;
                 setFromStartFrame();
                 setFromGoalFrame();
                 manip.robot.Component.FindFeature("startFrame").TransformationChanged += (e, a) => { setFromStartFrame(); };
                 manip.robot.Component.FindFeature("goalFrame").TransformationChanged += (e, a) => { setFromGoalFrame(); };
             } catch(Exception e)
             {
-                debug(e.Message);
+                debug(e.StackTrace);
             }
+
+            if (useSSM) {
+                initSSM();
+            }
+
+            // TODO entfernen
             IoC.Get<IDebugCall>().NumValue[0] = demandedSpeed; //TODO fix
-            IoC.Get<IDebugCall>().DebugNum[0] += changeDemand;
-            IoC.Get<IDebugCall>().DebugCall[0] += check;
-            //setInterpolator();
+            IoC.Get<IDebugCall>().DebugNum[0] += () => { MaxSpeed = IoC.Get<IDebugCall>().NumValue[0]; };
+            IoC.Get<IDebugCall>().DebugCall[0] += () => { IoC.Get<IMessageService>().AppendMessage(demandedSpeed.ToString(), MessageLevel.Warning);  };
+            
+            ticker = IoC.Get<ISimulationTicker>();
+            ticker.timerTick += RobotCycle;
+            app.Simulation.SimulationReset += (o,e) => { reset = true; };
 
             // viel mehr krams
 
-            //später auslagern
-            st = app.StatisticsManager.CreateTimer(RobotCycle);
-            st.SamplingInterval = SAMPLE_TIME;
 
-            app.Simulation.SimulationStarted += started;
-            app.Simulation.SimulationStopped += stopped;
         }
-
-
-        private void check() {
-            IoC.Get<IMessageService>().AppendMessage(demandedSpeed.ToString(), MessageLevel.Warning);
-            
-        }
-        private void changeDemand()
-        {
-            demandedSpeed = IoC.Get<IDebugCall>().NumValue[0];
-        }
-
-        /*
-private void jointChanged(object sender, EventArgs e)
-{
-   test = manip.robot.RobotController.CreateTarget();
-   test.UseJointValues = false;
-   double[] newJoints = new double[manip.robot.RobotController.Joints.Count];
-   for (int i = 0; i < newJoints.Length; i++)
-   {
-       newJoints[i] = manip.robot.Controller.Joints[i].Value;
-   }
-   test.SetAllJointValues(newJoints);
-   double[] joints = test.GetAllJointValues();
-   IoC.Get<IMessageService>().AppendMessage(
-       test.TargetMatrix.Px.ToString() + "\t" + joints[0].ToString() + "\n" +
-       test.TargetMatrix.Py.ToString() + "\t" + joints[1].ToString() + "\n" +
-       test.TargetMatrix.Pz.ToString() + "\t" + joints[2].ToString() + "\n" +
-       test.TargetMatrix.GetWPR().X.ToString() + "\t" + joints[3].ToString() + "\n" +
-       test.TargetMatrix.GetWPR().Y.ToString() + "\t" + joints[4].ToString() + "\n" +
-       test.TargetMatrix.GetWPR().Z.ToString() + "\t" + joints[5].ToString()
-       , MessageLevel.Warning);
-}*/
-
-        // sollte so allgemein klappen, da startTarget und goalTarget den selben Bezug haben sollten...
-
+        
         private Matrix WorldToRobot(Matrix from)
         {
             return Matrix.Multiply(kinematics.WorldBaseMatrix.Inverse(), from);
         }
-
-        private double absolute(double[] vector)
-        {
-            try
-            {
-                double sum = 0;
-                for (int i = 0; i < vector.Length; i++)
-                {
-                    sum += vector[i] * vector[i];
-                }
-                return Math.Sqrt(sum);
-            } catch(Exception e)
-            {
-                debug("absolute: " + e.Message);
-                return 0;
-            }
-        }
-
-        private void calcDelta() {
-            try
-            {
-                if (startJoints.Length != goalJoints.Length)
-                {
-                    throw new ArgumentException();
-                }
-                deltaJoints = new double[startJoints.Length];
-                for (int i = 0; i < startJoints.Length; i++)
-                {
-                    deltaJoints[i] = goalJoints[i] - startJoints[i];
-
-                }
-                double len = absolute(deltaJoints);
-                for (int i = 0; i < startJoints.Length; i++)
-                {
-                    deltaJoints[i] /= len;
-                }
-                reset = true;
-            }catch(Exception e)
-            {
-                debug("calcDelta: " + e.Message);
-            }
-        }
-
-        public void setFromStartFrame() {
-            //setStart(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("startFrame")));
-
-            kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("startFrame")));
-            startJoints = kinematics.GetAllJointValues();
-            calcDelta();
-        }
-
-        public void setFromGoalFrame() {
-            //setGoal(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("goalFrame")));
-
-            kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("goalFrame")));
-            goalJoints = kinematics.GetAllJointValues();
-            calcDelta();
-        }
-        /*
-        private void frameChanged(object sender, EventArgs e)
-        {
-            IFeature frame = sender as IFeature;
-            test = manip.robot.RobotController.CreateTarget();
-            test.UseJointValues = false;
-            test.TargetMatrix = Matrix.Multiply(test.WorldBaseMatrix.Inverse(), manip.robot.Component.RootNode.GetFeatureTransformationInWorld(frame));
-            double[] joints = test.GetAllJointValues();
-            IoC.Get<IMessageService>().AppendMessage(
-                test.TargetMatrix.Px.ToString() + "\t" + joints[0].ToString() + "\n" +
-                test.TargetMatrix.Py.ToString() + "\t" + joints[1].ToString() + "\n" +
-                test.TargetMatrix.Pz.ToString() + "\t" + joints[2].ToString() + "\n" +
-                test.TargetMatrix.GetWPR().X.ToString() + "\t" + joints[3].ToString() + "\n" +
-                test.TargetMatrix.GetWPR().Y.ToString() + "\t" + joints[4].ToString() + "\n" +
-                test.TargetMatrix.GetWPR().Z.ToString() + "\t" + joints[5].ToString()
-                , MessageLevel.Warning);
-
-            
-        }*/
-
-        public void setStart(Matrix target) {
-            setTarget(target, ref startTarget);
-        }
-
-        public void setGoal(Matrix target)
-        {
-            setTarget(target, ref goalTarget);
-        }
-
-        private void setTarget(Matrix target, ref IMotionTarget toChange) {
-            
-            toChange.UseJointValues = false;
-            toChange.TargetMatrix = Matrix.Multiply(toChange.WorldBaseMatrix.Inverse(), target);
-        }
-
-        public void setStart(double[] target) {
-            setTarget(target, ref startTarget);
-        }
-
-        public void setGoal(double[] target) {
-            setTarget(target, ref goalTarget);
-        }
-
-        private void setTarget(double[] target, ref IMotionTarget toChange)
-        {
-            
-            toChange.UseJointValues = true;
-            toChange.SetAllJointValues(target);
-        }
-
-        public void setCurrentToStart() {
-            setStart(manip.getConfiguration());
-        }
         
-        public void setInterpolator(bool fromNow = false)
-        {
-            if (interpol.Targets.Count > 0)
-            {
-                interpol.SetTargetAt(0, startTarget);
-            }
-            else
-            {
-                interpol.AddTarget(startTarget);
-            }
-
-            if (interpol.Targets.Count > 1)
-            {
-                interpol.SetTargetAt(1, goalTarget);
-            }
-            else
-            {
-                interpol.AddTarget(goalTarget);
-            }
-            
-            startTime = _app.Simulation.Elapsed;
-            haltedTime = 0;
-            IoC.Get<IMessageService>().AppendMessage("New Interpolation", MessageLevel.Warning);
-        }
-
-        private void stopped(object sender, EventArgs e)
-        {
-            st.StartStopTimer(false);
-            
-        }
-
-        private void started(object sender, EventArgs e)
-        {
-            st.StartStopTimer(true);
+        private void calcDelta() {
+            deltaJoints = goalJoints - startJoints;
+            deltaJoints.Norm = 1;
             reset = true;
         }
 
-        public static Vector FK(IMotionTarget kinematics, Vector joints)
-        {
-            Vector pos = new Vector(6);
-
-            kinematics.SetAllJointValues(joints.Elements);
-            for (int i = 0; i < 3; i++)
+        public void setFromStartFrame() {
+            kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("startFrame")));
+            startJoints = new Vector(kinematics.GetAllJointValues());
+            if (goalJoints != null)
             {
-                pos[i] = kinematics.TargetMatrix.GetP()[i];
-                pos[i + 3] = kinematics.TargetMatrix.GetWPR()[i];
+                calcDelta();
             }
-            return pos;
         }
 
-        public static double cartesianDistance(IMotionTarget kinematics, Vector startJ, Vector stopJ)
-        {
-            Vector delta = FK(kinematics, startJ).sub(FK(kinematics, stopJ));
-            double dist = 0;
-            for (int i = 0; i < 3; i++)
+        public void setFromGoalFrame() {
+            kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("goalFrame")));
+            goalJoints = new Vector(kinematics.GetAllJointValues());
+            if (startJoints != null)
             {
-                dist += delta[i] * delta[i];
+                calcDelta();
             }
-            return Math.Sqrt(dist);
-
+        }
+        
+        public void kill() {
+            killed = true;
         }
 
-        private void RobotCycle(object sender, EventArgs e)
+        private void RobotCycle()
         {
-            /*
-            int jointCount;
-            try
-            {
-                jointCount = manip.jointCount;
-            }
-            catch {
-                return;
-            }
-
-            double j0 = Math.Sin(2 * Math.PI * _app.Simulation.Elapsed / 10) * 90;
-            double[] jointVals = new double[jointCount];
-            jointVals[0] = j0;
-            jointVals[1] = 45;
-            jointVals[2] = 45;
-            manip.setConfiguration(jointVals);*/
-            Vector before = new Vector(kinematics.JointCount);
-            Vector after = new Vector(kinematics.JointCount);
+            if (killed) { return; }
+            
             try
             {
                 if (reset)
@@ -334,45 +117,55 @@ private void jointChanged(object sender, EventArgs e)
                     manip.setConfiguration(startJoints);
                     reset = false;
                     finished = false;
-                    lastDistance = cartesianDistance(kinematics, new Vector(startJoints), new Vector(goalJoints)); 
+                    lastDistance = StaticKinetics.cartesianDistance(kinematics, startJoints, goalJoints); 
                     return;
                 }
                 if (finished)
                 {
+                    Vector buffer = startJoints;
+                    startJoints = goalJoints;
+                    goalJoints = buffer;
+                    calcDelta();
+                    finished = false;
                     return;
                 }
-                double[] joints = manip.getConfiguration();
+                Vector joints = manip.getConfiguration();
 
+                lastSpeed = Math.Min(demandedSpeed, maximumSpeed);
 
-                double dist = cartesianDistance(kinematics, new Vector(joints), new Vector(goalJoints));
-                if (dist < demandedSpeed * SAMPLE_TIME)
+                double dist = StaticKinetics.cartesianDistance(kinematics, joints, goalJoints);
+                if (dist < lastSpeed * ticker.tickTime)
                 {
                     finished = true;
                 }
 
                 Jacobian appro = Jacobian.calcApproJacobian(kinematics, joints);
-                double[] cartesianSpeed = appro.multiply(deltaJoints);
-                double[] cartesianTransSpeed = new double[3];
+                Vector cartesianSpeed = appro.multiply(deltaJoints);
+                Vector cartesianTransSpeed = new Vector(3);
                 for (int i = 0; i < 3; i++)
                 {
-                    cartesianTransSpeed[i] = cartesianSpeed[i] / SAMPLE_TIME;
+                    cartesianTransSpeed[i] = cartesianSpeed[i] / ticker.tickTime;
                 }
-                double factor = demandedSpeed / absolute(cartesianTransSpeed);
+                double factor = lastSpeed / cartesianTransSpeed.Norm;
+
+                // sollte schneller als "joints = joints + deltaJoints * factor" sein, da nur eine Schleife!
                 for (int i = 0; i < deltaJoints.Length; i++)
                 {
                     joints[i] += deltaJoints[i] * factor;
                 }
-                before = new Vector(manip.getConfiguration());
-                after = new Vector(joints);
+                
+                double speed = StaticKinetics.cartesianDistance(kinematics, manip.getConfiguration(), joints) / ticker.tickTime;
                 manip.setConfiguration(joints);
+
+                //if (Math.Abs((commandedSpeed - speed) / commandedSpeed) > 0.05)
+                //{
+                //    IoC.Get<IMessageService>().AppendMessage("(" + manip.component.Name + ") Speed: " + speed.ToString(), MessageLevel.Warning);
+                //}
 
             } catch(Exception ee)
             {
-                debug("CycleTime: "+ ee.Message);
+                debug("CycleTime: "+ ee.StackTrace);
             }
-
-            double speed = cartesianDistance(kinematics, before, after) / SAMPLE_TIME;
-            IoC.Get<IMessageService>().AppendMessage("Speed: " + speed.ToString(), MessageLevel.Warning);
 
         }
 
