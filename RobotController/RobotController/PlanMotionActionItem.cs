@@ -17,12 +17,18 @@ namespace RobotController
         private Lazy<IApplication> app = null;
 
         IMessageService ms = null;
+        
 
-        public PlanMotionActionItem() : base("PlanMotion")
+        public PlanMotionActionItem() : base("StartMovement")
         {
             ms = IoC.Get<IMessageService>();
             ms.AppendMessage("Constructor of PlanMotion Action Item called", MessageLevel.Warning);
         }
+        //public PlanMotionActionItem() : base("PlanMotion")
+        //{
+        //    ms = IoC.Get<IMessageService>();
+        //    ms.AppendMessage("Constructor of PlanMotion Action Item called", MessageLevel.Warning);
+        //}
 
         public override void Execute(PropertyCollection args)
         {
@@ -40,7 +46,7 @@ namespace RobotController
                 "tool0",
                 "S:/git/rosi.plugin.pathplanner/cage-models/fleximir-model-even-less-detailed.stl");
 
-            RobotController.getInstance().addMotionPlan(robot, motionPlan);
+            RobotController.getInstance().AddMotionPlan(robot, motionPlan);
                 
             String startFrameName = args.GetByIndex(1).Value.ToString();
 

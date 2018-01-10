@@ -59,6 +59,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MotionInterpolation.cs" />
+    <Compile Include="StartMovementActionItem.cs" />
     <Compile Include="RegisterRobotActionItem.cs" />
     <Compile Include="PlanMotionActionItem.cs" />
     <Compile Include="MotionPlanningManager.cs" />
