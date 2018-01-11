@@ -45,6 +45,12 @@ namespace RobotController
         {
         }
 
+        /// <summary>
+        /// The provided robot is added to the internal list which is maintained by this controller plugin.
+        /// Initialization of variables and speed and separation monitoring happens.
+        /// </summary>
+        /// <param name="robot"></param>The robot that should be registered.
+        /// <returns></returns>Returns true if registration was successful and false otherwise.
         public bool RegisterRobot(IRobot robot)
         {
             if (robotList.ContainsKey(robot))
@@ -54,12 +60,62 @@ namespace RobotController
             robotList.Add(robot, new RobotParameters());
             robotList[robot].speedCalculator = new SpeedCalculator(30, 0);
             robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
-            robotList[robot].maxCartesianSpeed = 240.0;
-            robotList[robot].allowedCartesianSpeed = 240.0;
-            
+            robotList[robot].maxCartesianSpeed = 480.0;
+            robotList[robot].allowedCartesianSpeed = 480.0;
+
+            VisualizeSeperationDistance(robot, 500.0);
+
             return true;
         }
 
+        /// <summary>
+        /// Visualization of Separation Distance. A cylinder feature is added to the robot if not already present.
+        /// Initial values are set.
+        /// </summary>
+        /// <param name="robot"></param>The robot for which the separation distance should be visualized.
+        /// <param name="initialRadius"></param>The initial radius for the cylinder.
+        private void VisualizeSeperationDistance(IRobot robot, double initialRadius)
+        {
+            if (robot.Component.FindFeature("SeparationVisualization") == null)
+            {
+                ITransformFeature transformFeature = robot.Component.FindFeature("Root").CreateFeature<ITransformFeature>();
+                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ")";
+                transformFeature.SetName("SeparationVisualizationTransformation");
+
+                ICylinderFeature seperationVisualization = robot.Component.FindFeature("SeparationVisualizationTransformation").CreateFeature<ICylinderFeature>();
+                // true would remove the top and bottom of the cylinder, but backfaces of the inside of the cylinder are not rendered
+                //seperationVisualization.GetProperty("Caps").Value = false; 
+                seperationVisualization.GetProperty("Height").Value = "1.0";
+                seperationVisualization.GetProperty("Sections").Value = "36.0";
+                seperationVisualization.GetProperty("Radius").Value = initialRadius.ToString();
+                seperationVisualization.GetProperty("Material").Value = app.FindMaterial("yellow", false);
+                seperationVisualization.SetName("SeparationVisualization");
+            } 
+        }
+
+        /// <summary>
+        /// Simple function to update the size of the cylinder which visualizes the current separation distance.
+        /// </summary>
+        /// <param name="robot"></param>The robot for which the update should be made.
+        private void UpdateVisualizationDistance(IRobot robot)
+        {
+            if (robot.Component.FindFeature("SeparationVisualization") != null)
+            {
+                ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
+                cylinder.GetProperty("Radius").Value = 
+                    robotList[robot].currentSeperationDistance.ToString();
+                cylinder.Rebuild();
+            }
+        }
+
+        /// <summary>
+        /// Adds a new motion plan for a specific robot which would come from path planning.
+        /// This motion plan contains at least two or more (the intermediate) joint angle configuration to reach the goal position.
+        /// Furthermore motion interpolator and motion tester are initialized and the motion plan from path planning
+        /// is subdived.
+        /// </summary>
+        /// <param name="robot"></param>The robot to which the motion plan belongs and for which it should be saved.
+        /// <param name="motionPlan"></param>
         public void AddMotionPlan(IRobot robot, MotionPlan motionPlan)
         {
             try
@@ -79,9 +135,9 @@ namespace RobotController
             }
         }
 
-        /*
-         * Get StatisticsManager instance, enable it and set an interval!
-         */
+        /// <summary>
+        /// Plugin Initialization. Only called once at program start.
+        /// </summary>
         public void Initialize()
         {
             //IoC.Get<ISimulationService>().PropertyChanged += JointConfigurationChanged;
@@ -96,6 +152,11 @@ namespace RobotController
             app.World.ComponentRemoving += World_ComponentRemoving;
         }
 
+        /// <summary>
+        /// Initialization at Simulation startup. Each time the play button is pressed, this is triggered.
+        /// </summary>
+        /// <param name="sender"></param>The source of the simulation start event.
+        /// <param name="e"></param>The simulation start event.
         public void SimulationStarted(object sender, EventArgs e)
         {
             ms.AppendMessage("Simulation Started", MessageLevel.Warning);
@@ -103,6 +164,12 @@ namespace RobotController
             timer.StartStopTimer(true);
         }
 
+        /// <summary>
+        /// Cleanup for the reset of the simulation. Everything that has to be cleared for the next run,
+        /// should be cleared.
+        /// </summary>
+        /// <param name="sender"></param>The source of the simulation stopped event.
+        /// <param name="e"></param>The simulation stopped event.
         public void SimulationStopped(object sender, EventArgs e)
         {
             ms.AppendMessage("Simulation Stopped", MessageLevel.Warning);
@@ -124,24 +191,26 @@ namespace RobotController
             }
         }
 
+        /// <summary>
+        /// The general update loop which has to trigger everything that should be computed for each iteration.
+        /// </summary>
+        /// <param name="sender"></param>The source of the tick event.
+        /// <param name="e"></param>The tick event itself.
         public void RegularTick(object sender, EventArgs e)
         {
-            //ms.AppendMessage("Current Time: " + app.Simulation.Elapsed, MessageLevel.Warning);
-
-            foreach (IRobot robot in robotList.Keys)
-            {
-                MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, robot.RobotController.ToolCenterPoint, TICK_INTERVAL);
-            }
-
-            foreach(ILaserScanner laserScanner in laser_scanners)
+            foreach (ILaserScanner laserScanner in laser_scanners)
             {
                 laserScanner.Scan();
             }
+
+            foreach (IRobot robot in robotList.Keys)
+            {
+                UpdateVisualizationDistance(robot);
+                MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, robot.RobotController.ToolCenterPoint, TICK_INTERVAL);
+            }
         }
-
         
-
         void OutputOnHumanDetected(object sender, LaserScannerHumanDetectedEventArgs args)
         {
             //ms.AppendMessage("Detected Human with moveSpeed: " +args.MoveSpeed, MessageLevel.Warning);
@@ -151,10 +220,10 @@ namespace RobotController
                 if (robotList.ContainsKey(robot))
                 {
                     robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
-                    ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
+                    //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
                     robotList[robot].currentSeperationDistance = robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed);
-                    //ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
+                    ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
 
                     robotList[robot].closestDistanceToHuman = (args.HumanPosition - robot.RobotController.ToolCenterPoint.GetP()).Length;
                     //ms.AppendMessage("MeasuredDistance: " + robotList[robot].closestDistanceToHuman, MessageLevel.Warning);
@@ -169,8 +238,7 @@ namespace RobotController
                 ms.AppendMessage(e.ToString(), MessageLevel.Error);
 
             }
-
-
+            
         }
         
         //TODO: Change the registration of laser scanners
