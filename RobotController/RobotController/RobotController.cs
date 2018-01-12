@@ -78,7 +78,7 @@ namespace RobotController
         {
             if (robot.Component.FindFeature("SeparationVisualization") == null)
             {
-                ITransformFeature transformFeature = robot.Component.FindFeature("Root").CreateFeature<ITransformFeature>();
+                ITransformFeature transformFeature = robot.Component.RootNode.RootFeature.CreateFeature<ITransformFeature>();
                 transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 

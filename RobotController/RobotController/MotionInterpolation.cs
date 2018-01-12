@@ -169,25 +169,34 @@ namespace RobotController
                 robotList[robot].motionInterpolator = robot.RobotController.CreateMotionInterpolator();
             }
 
-
-            foreach (VectorOfDouble jointAngleCollection in robotList[robot].motionPlan.getLastResult())
+            if (robotList[robot].motionPlan.getLastResult() != null)
             {
-                IMotionTarget motionTarget = CreateIMotionTargetForJointAngleConfiguration(robot, ref robotList, KukaSorted(jointAngleCollection), MotionType.Linear, robotList[robot].maxCartesianSpeed);
-                robotList[robot].motionInterpolator.AddTarget(motionTarget);
+                //Converting Joint Angle Configuration to IMotionTargets
+                foreach (VectorOfDouble jointAngleCollection in robotList[robot].motionPlan.getLastResult())
+                {
+                    //TODO: Make it flexible to allow convertion to PTP IMotionTargets as well 
+                    IMotionTarget motionTarget = CreateIMotionTargetForJointAngleConfiguration(robot, ref robotList, KukaSorted(jointAngleCollection), MotionType.Linear, robotList[robot].maxCartesianSpeed);
+                    robotList[robot].motionInterpolator.AddTarget(motionTarget);
+                }
+
+                double endTime = robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1);
+
+                ms.AppendMessage("StartTime: " + simulationTimeElapsed + " , EndTime: " + endTime, MessageLevel.Warning);
+
+                //Precompute the IMotionTargets based on the sampling interval
+                for (double x = simulationTimeElapsed; x <= endTime; x = x + samplingInterval)
+                {
+                    IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
+                    robotList[robot].motionInterpolator.Interpolate(x, ref refMotionTarget);
+                    robotList[robot].motionList.Add(x, refMotionTarget);
+                }
+
+                ms.AppendMessage("Created " + robotList[robot].motionList.Count + " motionTargets for Interpolation", MessageLevel.Warning);
             }
-            
-            double endTime = robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1);
-
-            ms.AppendMessage("StartTime: " + simulationTimeElapsed + " , EndTime: " + endTime, MessageLevel.Warning);
-
-            for (double x = simulationTimeElapsed; x <= endTime; x = x + 1.0)
+            else
             {
-                IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
-                robotList[robot].motionInterpolator.Interpolate(x, ref refMotionTarget);
-                robotList[robot].motionList.Add(x, refMotionTarget);
+                ms.AppendMessage("Something went wrong in motion planning, no results were available", MessageLevel.Warning);
             }
-
-            ms.AppendMessage("Created " + robotList[robot].motionList.Count + " motionTargets for Interpolation", MessageLevel.Warning);
         }
 
 
