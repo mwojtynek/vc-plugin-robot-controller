@@ -28,14 +28,13 @@ namespace RobotController
                 robotList[robot].currentCartesianSpeed = distance * 1 / tickInterval;
                 //ms.AppendMessage("Current Cartesian Speed measured: " + robotList[robot].currentCartesianSpeed, MessageLevel.Warning);
             }
-
             robotList[robot].lastTcpWorldPosition = currentTcpWorldPosition;
         }
 
         private double CalculateDistanceToGoal(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList)
         {
-            //Distance between goal positon and current position
-            robotList[robot].currentDistanceToGoal = (robotList[robot].currentTarget.WorldTargetMatrix.GetP() - robot.RobotController.ToolCenterPoint.GetP()).Length;
+						//Distance between goal positon and current position
+						robotList[robot].currentDistanceToGoal = (robotList[robot].currentTarget.WorldTargetMatrix.GetP() - robot.RobotController.ToolCenterPoint.GetP()).Length;
             return robotList[robot].currentDistanceToGoal;
         }
 
@@ -53,28 +52,29 @@ namespace RobotController
 
         private void SetSpeedInMotionTarget(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, ref IMotionTarget motionTarget)
         {
-            if (motionTarget.MotionType == MotionType.Joint)
+					RobotParameters param = robotList[robot];
+					if (motionTarget.MotionType == MotionType.Joint)
             {
                 // JointSpeed Value from 0-100
-                if (robotList[robot].allowedCartesianSpeed > motionTarget.CartesianSpeed)
+                if (param.allowedCartesianSpeed > motionTarget.CartesianSpeed)
                 {
-                    motionTarget.JointSpeed = robotList[robot].maxCartesianSpeed / robotList[robot].allowedCartesianSpeed;
+                    motionTarget.JointSpeed = param.maxCartesianSpeed / param.allowedCartesianSpeed;
                 }
                 else
                 {
-                    motionTarget.JointSpeed = robotList[robot].maxCartesianSpeed / motionTarget.CartesianSpeed;
+                    motionTarget.JointSpeed = param.maxCartesianSpeed / motionTarget.CartesianSpeed;
                 }
                 //ms.AppendMessage("SetJoint Speed for motion to: " + motionTarget.JointSpeed, MessageLevel.Warning);
             }
             else if (motionTarget.MotionType == MotionType.Linear)
             {
-                if (robotList[robot].allowedCartesianSpeed > motionTarget.CartesianSpeed)
+                if (param.allowedCartesianSpeed > motionTarget.CartesianSpeed)
                 {
                     motionTarget.CartesianSpeed = motionTarget.CartesianSpeed;
                 }
                 else
                 {
-                    motionTarget.CartesianSpeed = robotList[robot].allowedCartesianSpeed;
+                    motionTarget.CartesianSpeed = param.allowedCartesianSpeed;
                 }
                 //ms.AppendMessage("SetCartesian Speed for motion to: " + motionTarget.CartesianSpeed, MessageLevel.Warning);
             }
@@ -90,58 +90,61 @@ namespace RobotController
         /// <param name="robot"></param>
         private void PrepareNextMotion(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, double simulationTimeElapsed)
         {
-            //ms.AppendMessage("Preparing motion at simulation time: " + app.Simulation.Elapsed, MessageLevel.Warning);
-            //Clear existing interpolations
-            robotList[robot].motionInterpolator.ClearTargets();
+						RobotParameters param = robotList[robot];
+
+						//ms.AppendMessage("Preparing motion at simulation time: " + app.Simulation.Elapsed, MessageLevel.Warning);
+						//Clear existing interpolations
+						param.motionInterpolator.ClearTargets();
 
             //Add current position as start for interpolation and adjust speed
             IMotionTarget startTarget = robot.RobotController.CreateTarget();
             SetSpeedInMotionTarget(robot, ref robotList, ref startTarget);
             startTarget.MotionType = MotionType.Linear;
-            robotList[robot].motionInterpolator.AddTarget(startTarget);
+						param.motionInterpolator.AddTarget(startTarget);
 
             //Add current target as end for interpolation after speed adjustment
             SetSpeedInMotionTarget(robot, ref robotList, ref robotList[robot].currentTarget);
-            robotList[robot].currentTarget.MotionType = MotionType.Linear;
-            robotList[robot].motionInterpolator.AddTarget(robotList[robot].currentTarget);
+						param.currentTarget.MotionType = MotionType.Linear;
+						param.motionInterpolator.AddTarget(param.currentTarget);
 
-            robotList[robot].currentMotionStartTime = simulationTimeElapsed;
-            //ms.AppendMessage("CurrentMotionStartTime set to: " + robotList[robot].currentMotionStartTime, MessageLevel.Warning);
-            robotList[robot].currentMotionEndTime = simulationTimeElapsed + robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionInterpolator.Targets.Count - 1);
+						param.currentMotionStartTime = simulationTimeElapsed;
+						//ms.AppendMessage("CurrentMotionStartTime set to: " + robotList[robot].currentMotionStartTime, MessageLevel.Warning);
+						param.currentMotionEndTime = simulationTimeElapsed + param.motionInterpolator.GetCycleTimeAt(robotList[robot].motionInterpolator.Targets.Count - 1);
             //ms.AppendMessage("CurrentMotionEndTime set to: " + robotList[robot].currentMotionEndTime, MessageLevel.Warning);
             //ms.AppendMessage("Finished motion preparing at simulation time: " + app.Simulation.Elapsed, MessageLevel.Warning);
         }
 
         public void InterpolatePlannedMotion(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, double simulationTimeElapsed)
         {
-            if (robotList[robot].motionPlan != null && robotList[robot].motionPlan.getLastResult() != null)
+						RobotParameters param = robotList[robot];
+						if (param.motionPlan != null && param.motionPlan.getLastResult() != null)
             {
                 //ms.AppendMessage("GetCycleTime at " + motionInterpolator.Targets.Count + ": " + motionInterpolator.GetCycleTimeAt(motionInterpolator.Targets.Count-1), MessageLevel.Warning);
                 
-                if (robotList[robot].currentTarget == null && robotList[robot].motionList.Count > 0)
+                if (param.currentTarget == null && param.motionList.Count > 0)
                 {
-                    robotList[robot].currentTarget = robotList[robot].motionList.First().Value;
+										param.currentTarget = param.motionList.First().Value;
                     PrepareNextMotion(robot, ref robotList, simulationTimeElapsed);
                 }
 
                 //ms.AppendMessage("CycleTime:" + app.Simulation.Elapsed, MessageLevel.Warning);
 
-                if (simulationTimeElapsed < robotList[robot].currentMotionEndTime && CalculateDistanceToGoal(robot, ref robotList) > 0.01)
+                if (simulationTimeElapsed < param.currentMotionEndTime && CalculateDistanceToGoal(robot, ref robotList) > 0.01)
                 {
                     //Now interpolate until currentTarget is reached
                     IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
 
-                    robotList[robot].motionInterpolator.Interpolate(simulationTimeElapsed - robotList[robot].currentMotionStartTime, ref refMotionTarget);
-                    //ms.AppendMessage("Executing motion with speed:" + refMotionTarget.CartesianSpeed, MessageLevel.Warning);
+										param.motionInterpolator.Interpolate(simulationTimeElapsed - param.currentMotionStartTime, ref refMotionTarget);
+										//ms.AppendMessage("Executing motion with speed:" + refMotionTarget.CartesianSpeed, MessageLevel.Warning);
 
-                    robotList[robot].motionTester.CurrentTarget = refMotionTarget;
+										param.motionTester.CurrentTarget = refMotionTarget;
                 }
                 else
                 {
                     //Get next target from list - if there are targets left
-                    if (robotList[robot].motionList.IndexOfValue(robotList[robot].currentTarget) + 1 < robotList[robot].motionList.Count)
+                    if (param.motionList.IndexOfValue(param.currentTarget) + 1 < param.motionList.Count)
                     {
-                        robotList[robot].currentTarget = robotList[robot].motionList.ElementAt(robotList[robot].motionList.IndexOfValue(robotList[robot].currentTarget) + 1).Value;
+												param.currentTarget = param.motionList.ElementAt(param.motionList.IndexOfValue(param.currentTarget) + 1).Value;
                         PrepareNextMotion(robot, ref robotList, simulationTimeElapsed);
 
                     }
@@ -149,7 +152,7 @@ namespace RobotController
                     {
                         IBooleanSignal movementFinished = (IBooleanSignal)robot.Component.FindBehavior("MovementFinished");
                         movementFinished.Value = true;
-                        robotList[robot].currentTarget = null;
+												param.currentTarget = null;
                     }
                 }
 
@@ -163,35 +166,39 @@ namespace RobotController
         /// <param name="robot"></param>
         public void CalculateInterpolation(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, double samplingInterval, double simulationTimeElapsed)
         {
-
-            if (robotList[robot].motionInterpolator == null)
+						RobotParameters param = robotList[robot];
+						if (param.motionInterpolator == null)
             {
-                robotList[robot].motionInterpolator = robot.RobotController.CreateMotionInterpolator();
-            }
+							param.motionInterpolator = robot.RobotController.CreateMotionInterpolator();
+            } else {
+							// clean up
+							param.motionInterpolator.ClearTargets();
+						}
 
-            if (robotList[robot].motionPlan.getLastResult() != null)
+            if (param.motionPlan.getLastResult() != null)
             {
                 //Converting Joint Angle Configuration to IMotionTargets
                 foreach (VectorOfDouble jointAngleCollection in robotList[robot].motionPlan.getLastResult())
                 {
                     //TODO: Make it flexible to allow convertion to PTP IMotionTargets as well 
-                    IMotionTarget motionTarget = CreateIMotionTargetForJointAngleConfiguration(robot, ref robotList, KukaSorted(jointAngleCollection), MotionType.Linear, robotList[robot].maxCartesianSpeed);
-                    robotList[robot].motionInterpolator.AddTarget(motionTarget);
+                    IMotionTarget motionTarget = CreateIMotionTargetForJointAngleConfiguration(robot, ref robotList, KukaSorted(jointAngleCollection), MotionType.Linear, param.maxCartesianSpeed);
+										param.motionInterpolator.AddTarget(motionTarget);
                 }
 
-                double endTime = robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1);
 
-                ms.AppendMessage("StartTime: " + simulationTimeElapsed + " , EndTime: " + endTime, MessageLevel.Warning);
+								// getCycleTimeAt only returns the time delta to the position, so we need to add the already elapsed time for correct interpolation...
+								double endTime = simulationTimeElapsed + param.motionInterpolator.GetCycleTimeAt(param.motionPlan.getLastResult().Count - 1);
+								ms.AppendMessage("StartTime: " + simulationTimeElapsed + " , EndTime: " + endTime, MessageLevel.Warning);
 
                 //Precompute the IMotionTargets based on the sampling interval
                 for (double x = simulationTimeElapsed; x <= endTime; x = x + samplingInterval)
                 {
                     IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
-                    robotList[robot].motionInterpolator.Interpolate(x, ref refMotionTarget);
-                    robotList[robot].motionList.Add(x, refMotionTarget);
+										param.motionInterpolator.Interpolate(x, ref refMotionTarget);
+										param.motionList.Add(x, refMotionTarget);
                 }
 
-                ms.AppendMessage("Created " + robotList[robot].motionList.Count + " motionTargets for Interpolation", MessageLevel.Warning);
+                ms.AppendMessage("Created " + param.motionList.Count + " motionTargets for Interpolation", MessageLevel.Warning);
             }
             else
             {
