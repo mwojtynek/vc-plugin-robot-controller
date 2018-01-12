@@ -126,7 +126,7 @@ namespace RobotController
                     robotList[robot].motionInterpolator = robot.RobotController.CreateMotionInterpolator();
                     robotList[robot].motionList = new SortedList<double, IMotionTarget>();
                     robotList[robot].motionTester = robot.RobotController.GetMotionTester();
-                    MotionInterpolationInstance.CalculateInterpolation(robot, ref robotList, 1.0, app.Simulation.Elapsed);
+                    MotionInterpolationInstance.CalculateInterpolation(robot, ref robotList, 0.1, app.Simulation.Elapsed);
                 //}
             } catch(KeyNotFoundException e)
             {

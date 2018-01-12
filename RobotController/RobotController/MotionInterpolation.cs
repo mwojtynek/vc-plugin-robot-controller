@@ -179,7 +179,7 @@ namespace RobotController
                     robotList[robot].motionInterpolator.AddTarget(motionTarget);
                 }
 
-                double endTime = robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1);
+                double endTime = simulationTimeElapsed + robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1);
 
                 ms.AppendMessage("StartTime: " + simulationTimeElapsed + " , EndTime: " + endTime, MessageLevel.Warning);
 
