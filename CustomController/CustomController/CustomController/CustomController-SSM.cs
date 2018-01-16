@@ -5,7 +5,8 @@ using SpeedAndSeparationMonitoring;
 using Caliburn.Micro;
 using VisualComponents.Create3D;
 using Rosi.Components.Sensors;
-using Debugger;
+
+using RosiTools.Debugger;
 
 namespace CustomController
 {
@@ -92,10 +93,7 @@ namespace CustomController
             {
                 IoC.Get<IMessageService>().AppendMessage(maximumSpeed.ToString() + " <-", MessageLevel.Warning);
             }
-
-            //seperationCalc.GetSeparationDistance(data.GetHumanVelocity(), data.GetRobotVelocity());
-            //speedCalc.GetAllowedVelocity(data.GetBodyPart(), data.GetHumanVelocity(), data.GetContactArea());
-
+            
         }
     }
 }

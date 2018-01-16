@@ -9,7 +9,7 @@ using VisualComponents.Create3D;
 using VisualComponents.UX.Shared;
 using Caliburn.Micro;
 using System.ComponentModel;
-using Debugger;
+using RosiTools.Debugger;
 
 
 namespace CustomController

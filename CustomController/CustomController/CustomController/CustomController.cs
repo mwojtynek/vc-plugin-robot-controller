@@ -7,7 +7,9 @@ using System.Threading.Tasks;
 using VisualComponents.Create3D;
 using Caliburn.Micro;
 
-using Debugger;
+using RosiTools.Debugger;
+using RosiTools.SimulationTime;
+using RosiTools.Printer;
 
 namespace CustomController
 {
@@ -59,18 +61,75 @@ namespace CustomController
                 initSSM();
             }
 
-            // TODO entfernen
-            IoC.Get<IDebugCall>().NumValue[0] = demandedSpeed; //TODO fix
-            IoC.Get<IDebugCall>().DebugNum[0] += () => { MaxSpeed = IoC.Get<IDebugCall>().NumValue[0]; };
-            IoC.Get<IDebugCall>().DebugCall[0] += () => { IoC.Get<IMessageService>().AppendMessage(demandedSpeed.ToString(), MessageLevel.Warning);  };
-            
+            IoC.Get<IDebugCall>().DebugCall[0] += printCart;
+
             ticker = IoC.Get<ISimulationTicker>();
             ticker.timerTick += RobotCycle;
-            app.Simulation.SimulationReset += (o,e) => { reset = true; };
+            app.Simulation.SimulationReset += resetSimulation;
+            
 
             // viel mehr krams
+            /*
+            if (manip.component.Name == "TX60")
+            {
+                ISimNode comp = null;
+                foreach (ISimNode sim in manip.component.Nodes) {
+                    if (sim.IsComponentRoot) { comp = sim; }
+                }
+                recursivePrint(comp, 0);
 
+            }
+            */
 
+        }
+
+        private void printCart()
+        {
+            Printer.print(manip.component.Name);
+            kinematics.SetAllJointValues(manip.getConfigurationDouble());
+            Matrix m = WorldToRobot(kinematics.TargetMatrix);
+            StringBuilder b = new StringBuilder();
+            b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nx, m.Ox, m.Ax, m.Px);
+            b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Ny, m.Oy, m.Ay, m.Py);
+            b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nz, m.Oz, m.Az, m.Pz);
+            Printer.print(b.ToString());
+        }
+
+        private void recursivePrint(ISimNode cur, int level) {
+            string dash = new string('\t', level);
+            if (cur.DofType != JointType.Custom)
+            {
+                Printer.print(dash + cur.Name);
+            }
+            else
+            {
+                IExpressionProperty off = cur.GetProperty("Offset") as IExpressionProperty;
+                IExpressionProperty joint = cur.Dof.GetProperty("Joint") as IExpressionProperty;
+                if (joint != null && off != null)
+                {
+                    Printer.print(dash + cur.Name + " " + joint.Expression+ " " + off.Expression);
+
+                } else
+                {
+                    foreach (string str in cur.Dof.PropertyNames)
+                    {
+                        Printer.print(dash + cur.Name + " " + str + " " + cur.Dof.GetProperty(str).GetType().ToString());
+                    }
+
+                }
+            }
+
+            if (cur.Children.Count != 0)
+            {
+                foreach (ISimNode child in cur.Children)
+                {
+                    recursivePrint(child, level + 1);
+                }
+            }
+        }
+
+        ~CustomController() {
+            kill();
         }
         
         private Matrix WorldToRobot(Matrix from)
@@ -104,6 +163,14 @@ namespace CustomController
         
         public void kill() {
             killed = true;
+            ticker.timerTick -= RobotCycle;
+            _app.Simulation.SimulationReset -= resetSimulation;
+            IoC.Get<IDebugCall>().DebugCall[0] -= printCart;
+        }
+
+        private void resetSimulation(object sender, EventArgs e)
+        {
+            reset = true;
         }
 
         private void RobotCycle()
