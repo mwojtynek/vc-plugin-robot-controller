@@ -99,13 +99,22 @@ namespace RobotController
         /// <param name="robot"></param>The robot for which the update should be made.
         private void UpdateVisualizationDistance(IRobot robot)
         {
-            if (robot.Component.FindFeature("SeparationVisualization") != null)
+            if (robot.Component != null && robot.Component.FindFeature("SeparationVisualization") != null)
             {
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
                 cylinder.GetProperty("Radius").Value = 
                     robotList[robot].currentSeperationDistance.ToString();
                 cylinder.Rebuild();
+            } else
+            {
+                ms.AppendMessage("UpdateVisualizationDistance: Failed to find robot component!", MessageLevel.Warning);
             }
+        }
+
+        public void setMaxAllowedCartesianSpeed(IRobot robot, int maxspeed)
+        {
+            RobotParameters param = robotList[robot];
+            param.allowedCartesianSpeed = maxspeed;
         }
 
         /// <summary>
@@ -207,7 +216,7 @@ namespace RobotController
             {
                 UpdateVisualizationDistance(robot);
                 MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, robot.RobotController.ToolCenterPoint, TICK_INTERVAL);
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
             }
         }
         
