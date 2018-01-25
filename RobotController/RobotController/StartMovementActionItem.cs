@@ -10,69 +10,61 @@ using VisualComponents.UX.Shared;
 
 namespace RobotController
 {
-	[Export(typeof(IActionItem))]
-	public class StartMovementActionItem : ActionItem
-	{
-		[Import]
-		private Lazy<IApplication> app = null;
+    [Export(typeof(IActionItem))]
+    public class StartMovementActionItem : ActionItem
+    {
+        [Import]
+        private Lazy<IApplication> app = null;
 
-		IMessageService ms = null;
-		IRobot robot = null;
-		MotionPlanningManager mpm = null;
-		MotionPlan motionPlan = null;
-		int counter = 1;
+        IMessageService ms = null;
+        IRobot robot = null;
+        MotionPlanningManager mpm = null;
+        MotionPlan motionPlan = null;
 
-		public StartMovementActionItem() : base("StartMovement")
-		{
-			ms = IoC.Get<IMessageService>();
-			ms.AppendMessage("Constructor of StartMovement Action Item called", MessageLevel.Warning);
-		}
+        public StartMovementActionItem() : base("StartMovement")
+        {
+            ms = IoC.Get<IMessageService>();
+            ms.AppendMessage("Constructor of StartMovement Action Item called", MessageLevel.Warning);
+        }
 
-		Dictionary<String, MotionPlan> motionPlanCollection = new Dictionary<string, MotionPlan>();
-		public override void Execute(PropertyCollection args)
-		{
-			//ms.AppendMessage("Executing StartMovement with counter value" + counter, MessageLevel.Warning);
+        Dictionary<String, MotionPlan> motionPlanCollection = new Dictionary<string, MotionPlan>();
+        public override void Execute(PropertyCollection args)
+        {
+            //TODO: Fix the hard index access or at least print out a message if input was wrong
+            String robotName = (String)args.GetByIndex(0).Value;
+            robot = app.Value.World.FindComponent(robotName).GetRobot();
 
-			//TODO: Fix the hard index access or at least print out a message if input was wrong
-			String robotName = (String)args.GetByIndex(0).Value;
-			robot = app.Value.World.FindComponent(robotName).GetRobot();
+            String startFrameName = (String)args.GetByIndex(1).Value;
+            String goalFrameName = (String)args.GetByIndex(2).Value;
+            int maxAllowedCartesianSpeed = (int)args.GetByIndex(3).Value;
 
-			String startFrameName, goalFrameName;
-			if (counter == 5)
-			{
-				startFrameName = counter.ToString();
-				goalFrameName = "1";
-				counter = 1;
-			}
-			else
-			{
-				startFrameName = counter.ToString();
-				goalFrameName = (counter + 1).ToString();
-				counter++;
-			}
+            RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
+            VectorOfDoubleVector resultMotion = null;
+            String accessKey = startFrameName + ":" + goalFrameName;
+            if (!motionPlanCollection.TryGetValue(accessKey, out motionPlan))
+            {
+                mpm = new MotionPlanningManager();
 
-			String accessKey = startFrameName + ":" + goalFrameName;
-			if (!motionPlanCollection.TryGetValue(accessKey, out motionPlan))
-			{
-				mpm = new MotionPlanningManager();
+                motionPlan = mpm.InitializeMotionPlanner(robot,
+                                                        RobotParameters.UrdfFile,
+                                                        RobotParameters.KinStart, RobotParameters.KinEnd,
+                                                        RobotParameters.obstacleModelFile);
 
-				motionPlan = mpm.InitializeMotionPlanner(robot,
-																								RobotParameters.UrdfFile,
-																								RobotParameters.KinStart, RobotParameters.KinEnd,
-																								RobotParameters.obstacleModelFile);
+                resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
+                motionPlanCollection.Add(accessKey, motionPlan);
+            }
+            else
+            {
+                resultMotion = motionPlan.getLastResult();
+            }
 
-				VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
-				motionPlanCollection.Add(accessKey, motionPlan);
-			}
+            if (resultMotion != null)
+            {
+                IBooleanSignal movementFinished = (IBooleanSignal)robot.Component.FindBehavior("MovementFinished");
+                movementFinished.Value = false;
+                RobotController.getInstance().AddMotionPlan(robot, motionPlan);
+            }
+        }
 
-
-			IBooleanSignal movementFinished = (IBooleanSignal)robot.Component.FindBehavior("MovementFinished");
-			movementFinished.Value = false;
-
-			RobotController.getInstance().AddMotionPlan(robot, motionPlan);
-
-			//ms.AppendMessage("Executed StartMovement.", MessageLevel.Warning);
-		}
-
-	}
+    }
 }

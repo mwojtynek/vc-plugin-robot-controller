@@ -32,5 +32,12 @@ namespace RobotController
 				public static String KinStart = "base_link";
 				public static String KinEnd	 = "tool0";
 				public static String obstacleModelFile = "C:\\local\\motion-planning\\cage-models\\Robot_Scene_Scaled.stl";
+
+        public enum Interpolation_Method
+        {
+            MOTION_TARGET_CHUNKING, // Hendrik
+            TIME_MANIPULATION // Julius
+        }
+        public static Interpolation_Method InterpolationMethod = Interpolation_Method.TIME_MANIPULATION;
 	}
 }
