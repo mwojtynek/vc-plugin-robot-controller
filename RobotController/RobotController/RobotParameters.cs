@@ -18,26 +18,16 @@ namespace RobotController
         public SpeedCalculator speedCalculator = null;
         public SeparationCalculator seperationCalculator = null;
         public double currentMotionStartTime = 0.0;
-        public double currentMotionEndTime = 0.0;
+        public String payloadOnFinishMovement = null;
+
         public Matrix lastTcpWorldPosition = Matrix.Zero;
-        public IMotionInterpolator motionInterpolator = null;
-        public SortedList<double, IMotionTarget> motionList = null;
-        public IMotionTarget currentTarget = null;
-        public IMotionTester motionTester = null;
         public double closestDistanceToHuman = 100.0;
         public double currentDistanceToGoal = 1000.0;
 
-				// Properties below this line are relevant for the setup of the motion plan and the kinematic chain of it only.
-				public static String UrdfFile = "C:\\local\\motion-planning\\robot_descriptions\\urdf\\lbr_iiwa_14_r820.urdf";
-				public static String KinStart = "base_link";
-				public static String KinEnd	 = "tool0";
-				public static String obstacleModelFile = "C:\\local\\motion-planning\\cage-models\\Robot_Scene_Scaled.stl";
-
-        public enum Interpolation_Method
-        {
-            MOTION_TARGET_CHUNKING, // Hendrik
-            TIME_MANIPULATION // Julius
-        }
-        public static Interpolation_Method InterpolationMethod = Interpolation_Method.TIME_MANIPULATION;
+		// Properties below this line are relevant for the setup of the motion plan and the kinematic chain of it only.
+		public static String UrdfFile = "C:\\local\\motion-planning\\robot_descriptions\\urdf\\lbr_iiwa_14_r820.urdf";
+		public static String KinStart = "base_link";
+		public static String KinEnd	 = "tool0";
+		public static String obstacleModelFile = "C:\\local\\motion-planning\\cage-models\\Robot_Scene_Scaled.stl";
 	}
 }
