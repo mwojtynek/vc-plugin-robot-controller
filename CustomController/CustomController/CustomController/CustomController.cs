@@ -62,6 +62,7 @@ namespace CustomController
             }
 
             IoC.Get<IDebugCall>().DebugCall[0] += printCart;
+            IoC.Get<IDebugCall>().DebugCall[1] += () => { demandedSpeed = IoC.Get<IDebugCall>().NumValue[0]; };
 
             ticker = IoC.Get<ISimulationTicker>();
             ticker.timerTick += RobotCycle;
