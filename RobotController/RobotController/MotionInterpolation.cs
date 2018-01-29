@@ -18,17 +18,19 @@ namespace RobotController
             ms = IoC.Get<IMessageService>();
         }
 
-        public void CalculateCurrentRobotSpeed(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, Matrix currentTcpWorldPosition, double tickInterval)
+        public void CalculateCurrentRobotSpeed(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, double tickInterval)
         {
+            RobotParameters param = robotList[robot];
+            Matrix currentTcpWorldPosition = param.motionTester.CurrentTarget.WorldTargetMatrix;
             //Distance between last and current position
-            if (!robotList[robot].lastTcpWorldPosition.Equals(Matrix.Zero))
+            if (!param.lastTcpWorldPosition.Equals(Matrix.Zero))
             {
-                double distance = (robotList[robot].lastTcpWorldPosition.GetP() - robot.RobotController.ToolCenterPoint.GetP()).Length;
+                double distance = (param.lastTcpWorldPosition.GetP() - currentTcpWorldPosition.GetP()).Length;
                 //[mm/s]
-                robotList[robot].currentCartesianSpeed = distance * 1 / tickInterval;
+                param.currentCartesianSpeed = distance * 1 / tickInterval;
                 //ms.AppendMessage("Current Cartesian Speed measured: " + robotList[robot].currentCartesianSpeed, MessageLevel.Warning);
             }
-            robotList[robot].lastTcpWorldPosition = currentTcpWorldPosition;
+            param.lastTcpWorldPosition = currentTcpWorldPosition;
         }
 
         private double CalculateDistanceToGoal(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList)
@@ -45,6 +47,8 @@ namespace RobotController
             motionTarget.MotionType = motionType;
             motionTarget.SetAllJointValues(jointAngleCollection);
             motionTarget.UseJointValues = true;
+            motionTarget.IsContinuous = true;
+            
             SetSpeedInMotionTarget(robot, ref robotList, ref motionTarget);
 
             return motionTarget;
@@ -79,6 +83,7 @@ namespace RobotController
                 //ms.AppendMessage("SetCartesian Speed for motion to: " + motionTarget.CartesianSpeed, MessageLevel.Warning);
             }
         }
+        
 
         /// <summary>
         /// This method helps to update the motion speeds in the motion interpolator directly.
@@ -128,15 +133,15 @@ namespace RobotController
                     param.currentTarget = param.motionList.First().Value;
                     PrepareNextMotion(robot, ref robotList, simulationTimeElapsed);
                 }
-
+                double motionStartTime = param.currentMotionStartTime;
                 //ms.AppendMessage("CycleTime:" + app.Simulation.Elapsed, MessageLevel.Warning);
-
-                if (simulationTimeElapsed < param.currentMotionEndTime && CalculateDistanceToGoal(robot, ref robotList) > 0.01)
+                
+                if ((simulationTimeElapsed-motionStartTime) < param.currentMotionEndTime && CalculateDistanceToGoal(robot, ref robotList) > 0.01)
                 {
                     //Now interpolate until currentTarget is reached
                     IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
-
-                    param.motionInterpolator.Interpolate(simulationTimeElapsed - param.currentMotionStartTime, ref refMotionTarget);
+                    
+                    param.motionInterpolator.Interpolate((simulationTimeElapsed - motionStartTime), ref refMotionTarget);
                     //ms.AppendMessage("Executing motion with speed:" + refMotionTarget.CartesianSpeed, MessageLevel.Warning);
 
                     param.motionTester.CurrentTarget = refMotionTarget;
@@ -154,7 +159,6 @@ namespace RobotController
                     {
                         IBooleanSignal movementFinished = (IBooleanSignal)robot.Component.FindBehavior("MovementFinished");
                         movementFinished.Value = true;
-                        ms.AppendMessage("Movement finished at:" + simulationTimeElapsed, MessageLevel.Warning);
                         param.currentTarget = null;
                     }
                 }
@@ -176,12 +180,13 @@ namespace RobotController
             }
             else
             {
-                // clean up
                 param.motionInterpolator.ClearTargets();
             }
 
             if (param.motionPlan.getLastResult() != null)
             {
+                param.motionList.Clear();
+
                 //Converting Joint Angle Configuration to IMotionTargets
                 foreach (VectorOfDouble jointAngleCollection in robotList[robot].motionPlan.getLastResult())
                 {
@@ -191,18 +196,19 @@ namespace RobotController
                 }
 
                 double endTime = simulationTimeElapsed + robotList[robot].motionInterpolator.GetCycleTimeAt(robotList[robot].motionPlan.getLastResult().Count - 1);
-
-                //ms.AppendMessage("StartTime: " + simulationTimeElapsed + " , EndTime: " + endTime, MessageLevel.Warning);
+                
 
                 //Precompute the IMotionTargets based on the sampling interval
-                for (double x = simulationTimeElapsed; x <= endTime; x = x + samplingInterval)
+                for (double x = 0; x <= endTime; x += samplingInterval)
                 {
                     IMotionTarget refMotionTarget = robot.RobotController.CreateTarget();
                     param.motionInterpolator.Interpolate(x, ref refMotionTarget);
+                    double[] jointValues = refMotionTarget.GetAllJointValues();
                     param.motionList.Add(x, refMotionTarget);
                 }
 
                 ms.AppendMessage("Created " + param.motionList.Count + " motionTargets for Interpolation", MessageLevel.Warning);
+
             }
             else
             {
