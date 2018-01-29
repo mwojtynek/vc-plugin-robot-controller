@@ -19,12 +19,9 @@ namespace RobotController
         public SpeedCalculator speedCalculator = null;
         public SeparationCalculator seperationCalculator = null;
         public double currentMotionStartTime = 0.0;
-        public double currentMotionEndTime = 0.0;
+        public String payloadOnFinishMovement = null;
+
         public Matrix lastTcpWorldPosition = Matrix.Zero;
-        public IMotionInterpolator motionInterpolator = null;
-        public SortedList<double, IMotionTarget> motionList = null;
-        public IMotionTarget currentTarget = null;
-        public IMotionTester motionTester = null;
         public double closestDistanceToHuman = 100.0;
         public double currentDistanceToGoal = 1000.0;
         

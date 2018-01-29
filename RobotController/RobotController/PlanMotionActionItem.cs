@@ -45,7 +45,7 @@ namespace RobotController
 																										RobotParameters.KinStart, RobotParameters.KinEnd,
 																										RobotParameters.obstacleModelFile);
 
-			RobotController.getInstance().AddMotionPlan(robot, motionPlan);
+			RobotController.getInstance().AddMotionPlan(robot, "", motionPlan);
                 
             String startFrameName = args.GetByIndex(1).Value.ToString();
 

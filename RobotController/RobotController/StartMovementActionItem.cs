@@ -37,10 +37,12 @@ namespace RobotController
             String startFrameName = (String)args.GetByIndex(1).Value;
             String goalFrameName = (String)args.GetByIndex(2).Value;
             int maxAllowedCartesianSpeed = (int)args.GetByIndex(3).Value;
+            String payload = (String)args.GetByIndex(4).Value;
 
             RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
             VectorOfDoubleVector resultMotion = null;
             String accessKey = startFrameName + ":" + goalFrameName;
+            //motionPlanCollection.Clear();
             if (!motionPlanCollection.TryGetValue(accessKey, out motionPlan))
             {
                 mpm = new MotionPlanningManager();
@@ -56,13 +58,27 @@ namespace RobotController
             else
             {
                 resultMotion = motionPlan.getLastResult();
+                motionPlan.getMotionInterpolator().restartMotion();
             }
 
             if (resultMotion != null)
             {
-                IBooleanSignal movementFinished = (IBooleanSignal)robot.Component.FindBehavior("MovementFinished");
-                movementFinished.Value = false;
-                RobotController.getInstance().AddMotionPlan(robot, motionPlan);
+                IBehavior beh = robot.Component.FindBehavior("MovementFinished");
+                if (beh != null && beh is IStringSignal)
+                {
+                    IStringSignal movementFinished = (IStringSignal)robot.Component.FindBehavior("MovementFinished");
+                    movementFinished.Value = ""; // empty string means no payload contained yet
+
+                    MotionInterpolator inp = motionPlan.getMotionInterpolator();
+                    inp.setMaxJointAcceleration(15.0);
+                    inp.setMaxJointVelocity(90.0);
+
+                    RobotController.getInstance().AddMotionPlan(robot, payload, motionPlan);
+                }
+                else
+                {
+                    ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                }
             }
         }
 

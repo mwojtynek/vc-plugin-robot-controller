@@ -84,14 +84,21 @@ namespace RobotController
 
             // we need the current position of the robot to enhance the result of the inverse kinematics
             VectorOfDouble currentPositionJointAngles = new VectorOfDouble(robot.Controller.Joints.Count);
-            currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
+            /*currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[1].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[3].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[4].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[5].Value);
+            currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);*/
+            currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
+            currentPositionJointAngles.Add(robot.Controller.Joints[1].Value);
+            currentPositionJointAngles.Add(robot.Controller.Joints[3].Value);
+            currentPositionJointAngles.Add(robot.Controller.Joints[4].Value);
+            currentPositionJointAngles.Add(robot.Controller.Joints[5].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);
-            
+            currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);
+
             //TODO: Make those frames global?
             IFeature startNode = robot.Component.FindFeature(startFrame);
             IFeature goalNode = robot.Component.FindFeature(goalFrame);
@@ -110,7 +117,7 @@ namespace RobotController
             VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
                                                                 startPosition.GetP().Y / 1000,
                                                                 startPosition.GetP().Z / 1000,
-                                                                startRotation.X, startRotation.Y, startRotation.Z, currentPositionJointAngles);
+                                                                startRotation.X, startRotation.Y, startRotation.Z);
             VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
                                                                 goalPosition.GetP().Y / 1000,
                                                                 goalPosition.GetP().Z / 1000,

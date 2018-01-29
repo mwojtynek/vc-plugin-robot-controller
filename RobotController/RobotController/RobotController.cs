@@ -121,6 +121,10 @@ namespace RobotController
         {
             RobotParameters param = robotList[robot];
             param.allowedCartesianSpeed = maxspeed;
+            if(param.motionPlan != null)
+            {
+                param.motionPlan.getMotionInterpolator().setCartesianSpeedLimit(maxspeed);
+            }
         }
 
         /// <summary>
@@ -131,19 +135,17 @@ namespace RobotController
         /// </summary>
         /// <param name="robot"></param>The robot to which the motion plan belongs and for which it should be saved.
         /// <param name="motionPlan"></param>
-        public void AddMotionPlan(IRobot robot, MotionPlan motionPlan)
+        public void AddMotionPlan(IRobot robot, String payloadOnFinishMovement, MotionPlan motionPlan)
         {
             try
             {
                 robotList[robot].motionPlan = motionPlan;
-                //if (robotList[robot].motionInterpolator == null)
-                //{
-                    robotList[robot].motionInterpolator = robot.RobotController.CreateMotionInterpolator();
-                    robotList[robot].motionList = new SortedList<double, IMotionTarget>();
-                    robotList[robot].motionTester = robot.RobotController.GetMotionTester();
-                    MotionInterpolationInstance.CalculateInterpolation(robot, ref robotList, 0.1, app.Simulation.Elapsed);
-                //}
-            } catch(KeyNotFoundException e)
+                robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
+                robotList[robot].payloadOnFinishMovement = payloadOnFinishMovement;
+                
+                ms.AppendMessage("New motion plan ("+ motionPlan.getLastResult().Count + ") set for robot "+robot.Name+" starting at "+app.Simulation.Elapsed, MessageLevel.Warning);
+            }
+            catch (KeyNotFoundException e)
             {
                 ms.AppendMessage("Motion plan could not be added, maybe robot was not registred?", MessageLevel.Warning);
                 ms.AppendMessage(e.ToString(), MessageLevel.Error);
@@ -192,14 +194,11 @@ namespace RobotController
             {
                 timer.StartStopTimer(false);
                 foreach (IRobot robot in robotList.Keys) {
-                    robotList[robot].motionInterpolator = null;
                     robotList[robot].currentCartesianSpeed = 0.0;
                     robotList[robot].currentMotionStartTime = 0.0;
-                    robotList[robot].currentMotionEndTime = 0.0;
-                    robotList[robot].currentTarget = null;
-                    robotList[robot].motionList = null;
                     robotList[robot].motionPlan = null;
-                    robotList[robot].motionTester = null;
+                    robotList[robot].seperationCalculator = null;
+                    robotList[robot].speedCalculator = null;
                 }
             }
         }
@@ -218,9 +217,32 @@ namespace RobotController
 
             foreach (IRobot robot in robotList.Keys)
             {
-                UpdateVisualizationDistance(robot);
-                MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
+                //UpdateVisualizationDistance(robot);
+                //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
+                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
+                RobotParameters param = robotList[robot];
+                if (param.motionPlan == null)
+                    continue;
+                MotionInterpolator mp = param.motionPlan.getMotionInterpolator();
+                if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone()){
+                    VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(TICK_INTERVAL);
+
+                    robot.RobotController.InvalidateKinChains();
+                    robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
+                    //robot.RobotController.GetMotionTester().CurrentTarget.SetAllJointValues(MotionInterpolation.KukaSorted(result));
+                    //robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
+                } else {
+                    // set movement done!
+                    IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
+                    if(movementFinished is IStringSignal)
+                    {
+                        ((IStringSignal) movementFinished).Value = robotList[robot].payloadOnFinishMovement;
+                    } else
+                    {
+                        ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                    }
+
+                }
             }
         }
         
@@ -233,6 +255,11 @@ namespace RobotController
                 if (robotList.ContainsKey(robot))
                 {
                     robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
+                    if(robotList[robot].motionPlan != null)
+                    {
+                        robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
+                    }
+
                     //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
                     //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
@@ -279,6 +306,7 @@ namespace RobotController
                 ms.AppendMessage("LaserScanners: " + laser_scanners.Count(), MessageLevel.Warning);
             }
         }
+
         void World_ComponentAdded(object sender, ComponentAddedEventArgs args)
         {
             IProperty prop = args.Component.GetProperty("LaserScanner");
