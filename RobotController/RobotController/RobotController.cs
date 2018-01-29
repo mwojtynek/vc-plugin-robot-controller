@@ -79,16 +79,17 @@ namespace RobotController
             if (robot.Component.FindFeature("SeparationVisualization") == null)
             {
                 ITransformFeature transformFeature = robot.Component.RootNode.RootFeature.CreateFeature<ITransformFeature>();
-                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ")";
+                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty(" 
+                    + robot.Component.FindNode("mountplate").TransformationInWorld.Py + ").Tx(" + robot.Component.FindNode("mountplate").TransformationInWorld.Px + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature seperationVisualization = robot.Component.FindFeature("SeparationVisualizationTransformation").CreateFeature<ICylinderFeature>();
                 // true would remove the top and bottom of the cylinder, but backfaces of the inside of the cylinder are not rendered
                 //seperationVisualization.GetProperty("Caps").Value = false; 
-                seperationVisualization.GetProperty("Height").Value = "1.0";
+                seperationVisualization.GetProperty("Height").Value = "3000.0";
                 seperationVisualization.GetProperty("Sections").Value = "36.0";
                 seperationVisualization.GetProperty("Radius").Value = initialRadius.ToString();
-                seperationVisualization.GetProperty("Material").Value = app.FindMaterial("yellow", false);
+                seperationVisualization.GetProperty("Material").Value = app.FindMaterial("transp_yellow", false);
                 seperationVisualization.SetName("SeparationVisualization");
             } 
         }
@@ -101,6 +102,11 @@ namespace RobotController
         {
             if (robot.Component.FindFeature("SeparationVisualization") != null)
             {
+                ITransformFeature transformFeature = (ITransformFeature) robot.Component.FindFeature("SeparationVisualizationTransformation");
+                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
+                    + (robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + (robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
+                transformFeature.SetName("SeparationVisualizationTransformation");
+
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
                 cylinder.GetProperty("Radius").Value = 
                     robotList[robot].currentSeperationDistance.ToString();
@@ -185,8 +191,6 @@ namespace RobotController
                     robotList[robot].motionList = null;
                     robotList[robot].motionPlan = null;
                     robotList[robot].motionTester = null;
-                    robotList[robot].seperationCalculator = null;
-                    robotList[robot].speedCalculator = null;
                 }
             }
         }
@@ -222,8 +226,13 @@ namespace RobotController
                     robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
                     //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
-                    robotList[robot].currentSeperationDistance = robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed);
-                    ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
+                    //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
+                    robotList[robot].currentSeperationDistance = 0.3 * robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed)
+                        + 0.7 * robotList[robot].oldSeparationDistance;
+
+                    robotList[robot].oldSeparationDistance = robotList[robot].currentSeperationDistance;
+
+                    //ms.AppendMessage("SeperationDistance: " + robotList[robot].currentSeperationDistance, MessageLevel.Warning);
 
                     robotList[robot].closestDistanceToHuman = (args.HumanPosition - robot.RobotController.ToolCenterPoint.GetP()).Length;
                     //ms.AppendMessage("MeasuredDistance: " + robotList[robot].closestDistanceToHuman, MessageLevel.Warning);

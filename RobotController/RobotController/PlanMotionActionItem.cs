@@ -41,12 +41,11 @@ namespace RobotController
             MotionPlanningManager mpm = new MotionPlanningManager();
 
             MotionPlan motionPlan = mpm.InitializeMotionPlanner(robot,
-                "S:\\git\\rosi.plugin.pathplanner\\robot_descriptions\\urdf\\lbr_iiwa_14_r820.urdf",
-                "base_link",
-                "tool0",
-                "S:/git/rosi.plugin.pathplanner/cage-models/fleximir-model-even-less-detailed.stl");
+																										RobotParameters.UrdfFile,
+																										RobotParameters.KinStart, RobotParameters.KinEnd,
+																										RobotParameters.obstacleModelFile);
 
-            RobotController.getInstance().AddMotionPlan(robot, motionPlan);
+			RobotController.getInstance().AddMotionPlan(robot, motionPlan);
                 
             String startFrameName = args.GetByIndex(1).Value.ToString();
 
