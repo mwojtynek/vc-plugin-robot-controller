@@ -40,7 +40,6 @@ namespace RobotController
             return robotList[robot].currentDistanceToGoal;
         }
         
-
         public static double[] KukaSorted(VectorOfDouble jointAngleCollection)
         {
             double[] firstJointAngleCollectionSorted = new double[7];
