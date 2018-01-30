@@ -11,8 +11,11 @@ using RosiTools.Debugger;
 using RosiTools.SimulationTime;
 using RosiTools.Printer;
 
+
+
 namespace CustomController
 {
+
     public partial class CustomController
     {
         public VisualRobotManipulator manip;
@@ -62,7 +65,6 @@ namespace CustomController
             }
 
             IoC.Get<IDebugCall>().DebugCall[0] += printCart;
-            IoC.Get<IDebugCall>().DebugCall[1] += () => { demandedSpeed = IoC.Get<IDebugCall>().NumValue[0]; };
 
             ticker = IoC.Get<ISimulationTicker>();
             ticker.timerTick += RobotCycle;

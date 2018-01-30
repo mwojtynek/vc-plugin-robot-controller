@@ -24,7 +24,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <OutputPath>..\..\..\..\..\..\..\Program Files\Visual Components\Visual Components Premium 4.0\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -61,6 +61,7 @@
     <Compile Include="CustomController-SSM.cs" />
     <Compile Include="CustomController.cs" />
     <Compile Include="Jacobian.cs" />
+    <Compile Include="newCustomController.cs" />
     <Compile Include="StaticKinetics.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Vector.cs" />
