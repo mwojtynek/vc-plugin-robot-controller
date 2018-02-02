@@ -217,9 +217,9 @@ namespace RobotController
 
             foreach (IRobot robot in robotList.Keys)
             {
-                //UpdateVisualizationDistance(robot);
+                UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
