@@ -40,27 +40,16 @@ namespace RobotController
             String payload = (String)args.GetByIndex(4).Value;
 
             RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
-            VectorOfDoubleVector resultMotion = null;
-            String accessKey = startFrameName + ":" + goalFrameName;
-            //motionPlanCollection.Clear();
-            if (!motionPlanCollection.TryGetValue(accessKey, out motionPlan))
+            if(mpm == null)
             {
                 mpm = new MotionPlanningManager();
-
                 motionPlan = mpm.InitializeMotionPlanner(robot,
                                                         RobotParameters.UrdfFile,
                                                         RobotParameters.KinStart, RobotParameters.KinEnd,
                                                         RobotParameters.obstacleModelFile);
 
-                resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
-                motionPlanCollection.Add(accessKey, motionPlan);
             }
-            else
-            {
-                resultMotion = motionPlan.getLastResult();
-                motionPlan.getMotionInterpolator().restartMotion();
-            }
-
+            VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
             if (resultMotion != null)
             {
                 IBehavior beh = robot.Component.FindBehavior("MovementFinished");
@@ -70,8 +59,8 @@ namespace RobotController
                     movementFinished.Value = ""; // empty string means no payload contained yet
 
                     MotionInterpolator inp = motionPlan.getMotionInterpolator();
-                    inp.setMaxJointAcceleration(15.0);
-                    inp.setMaxJointVelocity(90.0);
+                    inp.setMaxJointAcceleration(3.5);
+                    inp.setMaxJointVelocity(60.0);
 
                     RobotController.getInstance().AddMotionPlan(robot, payload, motionPlan);
                 }
