@@ -217,9 +217,9 @@ namespace RobotController
 
             foreach (IRobot robot in robotList.Keys)
             {
-                //UpdateVisualizationDistance(robot);
+                UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
@@ -229,16 +229,13 @@ namespace RobotController
 
                     robot.RobotController.InvalidateKinChains();
                     robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
-                    //robot.RobotController.GetMotionTester().CurrentTarget.SetAllJointValues(MotionInterpolation.KukaSorted(result));
-                    //robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
                 } else {
                     // set movement done!
                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
                     if(movementFinished is IStringSignal)
                     {
                         ((IStringSignal) movementFinished).Value = robotList[robot].payloadOnFinishMovement;
-                    } else
-                    {
+                    } else {
                         ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
 

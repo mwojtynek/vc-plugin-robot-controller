@@ -69,6 +69,25 @@ namespace RobotController
             
             IoC.Get<IMessageService>().AppendMessage(ikCommand, MessageLevel.Warning);
         }*/
+
+        String rD(double d)
+        {
+            return String.Format("{0:0.00}", d);
+        }
+        String getPositionHashKey(String framePrefix, Vector3 position, Vector3 rotation, VectorOfDouble currentPositionJointAngles)
+        {
+            String pos = rD(position.X)+","+ rD(position.Y)+","+ rD(position.Z);
+            String rot = rD(rotation.X) + "," + rD(rotation.Y) + "," + rD(rotation.Z);
+            String joint = "";
+            foreach (double d in currentPositionJointAngles)
+            {
+                joint += rD(d) + ",";
+            }
+            return framePrefix+"@"+pos + ","+rot+","+joint;
+        }
+
+        Dictionary<String, MotionPlan> motionBrain = new Dictionary<string, MotionPlan>();
+
         /// <summary>
         /// Trigger and receive a concrete motionPlan from startFrame to goalFrame.
         /// Obstacles must be added to the motionPlanner instance of the robot before.
@@ -113,56 +132,71 @@ namespace RobotController
             Matrix goalPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(goalNode);
             Vector3 startRotation = startPosition.GetWPR();
             Vector3 goalRotation = goalPosition.GetWPR();
-            
-            VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
-                                                                startPosition.GetP().Y / 1000,
-                                                                startPosition.GetP().Z / 1000,
-                                                                startRotation.X, startRotation.Y, startRotation.Z);
-            VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
-                                                                goalPosition.GetP().Y / 1000,
-                                                                goalPosition.GetP().Z / 1000,
-                                                                goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles);
-            
-            motionPlan.setStartPosition(startJointAngles);
-            motionPlan.setGoalPosition(goalJointAngles);
 
-            String startOut = "[", goalOut = "[";
-            for (int i = 0; i < startJointAngles.Count; i++)
+            String startHashKey = getPositionHashKey(startFrame, startPosition.GetP(), startRotation, currentPositionJointAngles);
+            String goalHashKey = getPositionHashKey(goalFrame, startPosition.GetP(), startRotation, currentPositionJointAngles);
+            MotionPlan result;
+            String joint = "";
+            foreach (double d in currentPositionJointAngles)
             {
-                startOut += String.Format("{0:0.00}", startJointAngles[i]) + " ";
-                goalOut += String.Format("{0:0.00}", goalJointAngles[i]) + " ";
+                joint += rD(d) + ",";
             }
-            startOut += "]";
-            goalOut += "]";
-
-            motionPlan.setSolveTime(10.0);
-            motionPlan.setStateValidityCheckingResolution(0.001);
-            //motionPlan.setReportFirstExactSolution(true);
-            motionPlan.setPlannerByString("RRTConnect");
-
-            if (motionPlan.plan() > 0)
+            //motionBrain.Clear();
+            if (!motionBrain.TryGetValue(startFrame + "->"+ goalFrame+ "@"+ joint, out result))
             {
-                IoC.Get<IMessageService>().AppendMessage("Found motion from " + startOut + " to " + goalOut + ": ", MessageLevel.Warning);
-                VectorOfDoubleVector plan = motionPlan.getLastResult();
-                foreach(VectorOfDouble jointConfiguration in plan)
+                VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
+                                                                    startPosition.GetP().Y / 1000,
+                                                                    startPosition.GetP().Z / 1000,
+                                                                    startRotation.X, startRotation.Y, startRotation.Z, currentPositionJointAngles);
+                VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
+                                                                    goalPosition.GetP().Y / 1000,
+                                                                    goalPosition.GetP().Z / 1000,
+                                                                    goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles);
+
+                motionPlan.setStartPosition(startJointAngles);
+                motionPlan.setGoalPosition(goalJointAngles);
+
+                String startOut = "[", goalOut = "[";
+                for (int i = 0; i < startJointAngles.Count; i++)
                 {
-                    String motionBuf = "[", sep="";
-                    foreach (double jointAngle in jointConfiguration)
+                    startOut += String.Format("{0:0.00}", startJointAngles[i]) + " ";
+                    goalOut += String.Format("{0:0.00}", goalJointAngles[i]) + " ";
+                }
+                startOut += "]";
+                goalOut += "]";
+
+                motionPlan.setSolveTime(10.0);
+                motionPlan.setStateValidityCheckingResolution(0.001);
+                //motionPlan.setReportFirstExactSolution(true);
+                motionPlan.setPlannerByString("RRTConnect");
+
+                if (motionPlan.plan() > 0)
+                {
+                    IoC.Get<IMessageService>().AppendMessage("Found motion from " + startOut + " to " + goalOut + ": ", MessageLevel.Warning);
+                    VectorOfDoubleVector plan = motionPlan.getLastResult();
+                    foreach (VectorOfDouble jointConfiguration in plan)
                     {
-                        motionBuf += sep+String.Format("{0:0.00}", jointAngle);
-                        sep = ",";
+                        String motionBuf = "[", sep = "";
+                        foreach(double jointAngle in jointConfiguration)
+                        {
+                            motionBuf += sep + String.Format("{0:0.00}", jointAngle);
+                            sep = ",";
+                        }
+
+                        IoC.Get<IMessageService>().AppendMessage(motionBuf + "]", MessageLevel.Warning);
                     }
 
-                    IoC.Get<IMessageService>().AppendMessage(motionBuf+"]", MessageLevel.Warning);
+                    IoC.Get<IMessageService>().AppendMessage("Found motion END", MessageLevel.Warning);
+                    motionBrain.Add(startFrame + "->" + goalFrame + "@" + joint, motionPlan);
+                    return plan;
                 }
-                
-                IoC.Get<IMessageService>().AppendMessage("Found motion END", MessageLevel.Warning);
-                return plan;
-            }
-            else
-            {
-                
-                IoC.Get<IMessageService>().AppendMessage("Failed to find motion from "+startOut+" to "+goalOut+": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
+                else
+                {
+                    IoC.Get<IMessageService>().AppendMessage("Failed to find motion from " + startOut + " to " + goalOut + ": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
+                }
+            } else {
+                IoC.Get<IMessageService>().AppendMessage("Loaded precomputed motion from " + startFrame + " to " + goalFrame+ "!", MessageLevel.Warning);
+                return result.getLastResult();
             }
             return null;
         }
