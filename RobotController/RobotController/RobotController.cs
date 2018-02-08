@@ -104,7 +104,7 @@ namespace RobotController
             {
                 ITransformFeature transformFeature = (ITransformFeature) robot.Component.FindFeature("SeparationVisualizationTransformation");
                 transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + (robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + (robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
+                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
@@ -219,7 +219,7 @@ namespace RobotController
             {
                 UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
@@ -251,7 +251,9 @@ namespace RobotController
                 IRobot robot = args.Robot;
                 if (robotList.ContainsKey(robot))
                 {
-                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
+                    robotList[robot].closestHumanWorldPosition = args.HumanPosition;
+                    robotList[robot].angleToHuman = args.Angle;
+                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 10.0);
                     if(robotList[robot].motionPlan != null)
                     {
                         robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
@@ -260,8 +262,10 @@ namespace RobotController
                     //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
                     //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
-                    robotList[robot].currentSeperationDistance = 0.3 * robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed)
-                        + 0.7 * robotList[robot].oldSeparationDistance;
+                    robotList[robot].currentSeperationDistance = 0.2 * robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed)
+                        + 0.8 * robotList[robot].oldSeparationDistance;
+
+                    //ms.AppendMessage(app.Simulation.Elapsed + ";" + args.MoveSpeed + ";" + robotList[robot].currentCartesianSpeed + ";" + robotList[robot].currentSeperationDistance, MessageLevel.Error);
 
                     robotList[robot].oldSeparationDistance = robotList[robot].currentSeperationDistance;
 
