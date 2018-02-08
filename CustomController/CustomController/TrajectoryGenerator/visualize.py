@@ -11,6 +11,5 @@ with open('path.txt', 'r') as f:
 length = len(names)
 for i in range(length - 1):
 	plot.plot(data[:,0],data[:,i+1], label= names[i+1])
-plot.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-           ncol=2, mode="expand", borderaxespad=0.)
+plot.legend(bbox_to_anchor=(-0.05, 1.015, 1.1, .102), ncol=4, mode="expand", borderaxespad=0.)
 plot.show()

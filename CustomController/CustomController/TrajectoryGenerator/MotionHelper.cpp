@@ -47,6 +47,7 @@ double Motion::getValue(double time, KinType typebool)
 {
 	Kin current = getValue(time);
 	switch (typebool) {
+	case Jtype: return current.j;
 	case Atype: return current.a;
 	case Vtype: return current.v;
 	case Stype: return current.s;
@@ -75,6 +76,7 @@ Kin Motion::getValue(double time)
 	}
 
 	dt = time;
+	current.j = _jerks[segment];
 	current.s += ((_jerks[segment] / 6 * dt + current.a / 2) * dt + current.v) * dt;
 	current.v += (_jerks[segment] / 2 * dt + current.a) * dt;
 	current.a += _jerks[segment] * dt;
