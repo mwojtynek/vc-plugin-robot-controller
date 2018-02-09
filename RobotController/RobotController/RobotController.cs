@@ -248,7 +248,12 @@ namespace RobotController
                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
                     if(movementFinished is IStringSignal)
                     {
-                        ((IStringSignal) movementFinished).Value = robotList[robot].payloadOnFinishMovement;
+                        IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
+                        
+                        if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
+                        {
+                            movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
+                        }
                     } else {
                         ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
