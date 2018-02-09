@@ -22,6 +22,8 @@ namespace RobotController
         {
             
             RobotParameters param = robotList[robot];
+            if (robot.Component == null)
+                return;
             Vector3 currentTcpWorldPosition = robot.Component.TransformationInWorld.GetP() + robot.RobotController.ToolCenterPoint.GetP(); //robot.RobotController.GetMotionTester().CurrentTarget.WorldTargetMatrix;
             //Distance between last and current position
             if (!param.lastTcpWorldPosition.Equals(Matrix.Zero))
@@ -44,12 +46,14 @@ namespace RobotController
 
                     double vxy = Math.Sqrt((vx * vx) + (vy * vy));
 
-                    double alpha = Math.Atan2((humanWorldPosition.Y - currentTcpWorldPosition.Y), (humanWorldPosition.X - currentTcpWorldPosition.X)); 
+                    double alpha = Math.Atan2((humanWorldPosition.Y - currentTcpWorldPosition.Y), (humanWorldPosition.X - currentTcpWorldPosition.X));
 
+                    if (robot.Component.GetProperty("ArrowAngleZ") == null)
+                        return;
                     robot.Component.GetProperty("ArrowAngleZ").Value = alpha * (180 / Math.PI); //param.angleToHuman * (180 / Math.PI);
                                                                                                 // Amount of speed of the robot that is directed towards the human
                     double vHuman = (vx * Math.Cos(alpha)) + (vy * Math.Sin(alpha));
-                    ms.AppendMessage("Vx: " + vx + ", Vy: " + vy + ", VHuman: " + vHuman + "Alpha: " + alpha, MessageLevel.Error);
+                    //ms.AppendMessage("Vx: " + vx + ", Vy: " + vy + ", VHuman: " + vHuman + "Alpha: " + alpha, MessageLevel.Error);
 
                     if (Math.Abs(vHuman - param.currentCartesianSpeed) >= 100)
                     {

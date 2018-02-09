@@ -13,7 +13,7 @@ namespace RobotController
     [Export(typeof(IPlugin))]
     public class RobotController : IPlugin
     {
-        private const double TICK_INTERVAL = 0.1;
+        private const double TICK_INTERVAL = 1.0/30.0;
         private IApplication app = null;
         private IMessageService ms = null;
         private static RobotController instance = null;
@@ -217,9 +217,9 @@ namespace RobotController
 
             foreach (IRobot robot in robotList.Keys)
             {
-                UpdateVisualizationDistance(robot);
+                //UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;

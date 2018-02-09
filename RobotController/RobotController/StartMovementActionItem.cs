@@ -59,8 +59,8 @@ namespace RobotController
                     movementFinished.Value = ""; // empty string means no payload contained yet
 
                     MotionInterpolator inp = motionPlan.getMotionInterpolator();
-                    inp.setMaxJointAcceleration(3.5);
-                    inp.setMaxJointVelocity(60.0);
+                    inp.setMaxJointAcceleration(6.5);
+                    inp.setMaxJointVelocity(75.0);
 
                     RobotController.getInstance().AddMotionPlan(robot, payload, motionPlan);
                 }
