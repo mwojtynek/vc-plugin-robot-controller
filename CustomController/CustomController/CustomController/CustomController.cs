@@ -11,6 +11,8 @@ using RosiTools.Debugger;
 using RosiTools.SimulationTime;
 using RosiTools.Printer;
 
+using System.Xml;
+
 
 
 namespace CustomController
@@ -41,6 +43,9 @@ namespace CustomController
 
         private ISimulationTicker ticker;
 
+        private newCustomController controllerWrapper;
+        private Permutator p;
+
         public CustomController(IApplication app, VisualRobotManipulator manip)
         {
             try
@@ -55,9 +60,11 @@ namespace CustomController
                 setFromGoalFrame();
                 manip.robot.Component.FindFeature("startFrame").TransformationChanged += (e, a) => { setFromStartFrame(); };
                 manip.robot.Component.FindFeature("goalFrame").TransformationChanged += (e, a) => { setFromGoalFrame(); };
+                changeData((manip.component.FindBehavior(VisualRobotManipulatorCollector.BEHAVIOR_NAME) as INote).Note);
+
             } catch(Exception e)
             {
-                debug(e.StackTrace);
+                Printer.print(e.StackTrace);
             }
 
             if (useSSM) {
@@ -65,29 +72,17 @@ namespace CustomController
             }
 
             IoC.Get<IDebugCall>().DebugCall[0] += printCart;
+            IoC.Get<IDebugCall>().DebugCall[2] += checkDH;
 
             ticker = IoC.Get<ISimulationTicker>();
             ticker.timerTick += RobotCycle;
             app.Simulation.SimulationReset += resetSimulation;
             
-
-            // viel mehr krams
-            /*
-            if (manip.component.Name == "TX60")
-            {
-                ISimNode comp = null;
-                foreach (ISimNode sim in manip.component.Nodes) {
-                    if (sim.IsComponentRoot) { comp = sim; }
-                }
-                recursivePrint(comp, 0);
-
-            }
-            */
-
         }
 
         private void printCart()
         {
+            /*
             Printer.print(manip.component.Name);
             kinematics.SetAllJointValues(manip.getConfigurationDouble());
             Matrix m = WorldToRobot(kinematics.TargetMatrix);
@@ -95,7 +90,7 @@ namespace CustomController
             b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nx, m.Ox, m.Ax, m.Px);
             b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Ny, m.Oy, m.Ay, m.Py);
             b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nz, m.Oz, m.Az, m.Pz);
-            Printer.print(b.ToString());
+            Printer.print(b.ToString());*/
         }
 
         private void recursivePrint(ISimNode cur, int level) {
@@ -169,6 +164,7 @@ namespace CustomController
             ticker.timerTick -= RobotCycle;
             _app.Simulation.SimulationReset -= resetSimulation;
             IoC.Get<IDebugCall>().DebugCall[0] -= printCart;
+            IoC.Get<IDebugCall>().DebugCall[2] -= checkDH;
         }
 
         private void resetSimulation(object sender, EventArgs e)
@@ -179,6 +175,8 @@ namespace CustomController
         private void RobotCycle()
         {
             if (killed) { return; }
+
+            if(controllerWrapper == null) { return;  }
             
             try
             {
@@ -208,17 +206,29 @@ namespace CustomController
                 {
                     finished = true;
                 }
+                
+                Vector jointsNew = new Vector(joints.Length);
+                Vector dotJointsNew = new Vector(deltaJoints.Length);
+                for (int i = 0; i < joints.Length; i++) {
+                    jointsNew[p.p(i)] = joints[i];
+                    dotJointsNew[p.p(i)] = deltaJoints[i];
+                }
+                Vector cartesianSpeed = controllerWrapper.FKSpeed(jointsNew, dotJointsNew);
+               
+                //Jacobian appro = Jacobian.calcApproJacobian(kinematics, joints);
+                //Vector cartesianSpeedAppro = appro.multiply(deltaJoints);
 
-                Jacobian appro = Jacobian.calcApproJacobian(kinematics, joints);
-                Vector cartesianSpeed = appro.multiply(deltaJoints);
                 Vector cartesianTransSpeed = new Vector(3);
+                //Vector cartesianTransSpeedAppro = new Vector(3);
+
                 for (int i = 0; i < 3; i++)
                 {
                     cartesianTransSpeed[i] = cartesianSpeed[i] / ticker.tickTime;
+                    //cartesianTransSpeedAppro[i] = cartesianSpeedAppro[i] / ticker.tickTime;
                 }
-                double factor = lastSpeed / cartesianTransSpeed.Norm;
 
-                // sollte schneller als "joints = joints + deltaJoints * factor" sein, da nur eine Schleife!
+                double factor = lastSpeed / cartesianTransSpeed.Norm;
+                                
                 for (int i = 0; i < deltaJoints.Length; i++)
                 {
                     joints[i] += deltaJoints[i] * factor;
@@ -234,15 +244,169 @@ namespace CustomController
 
             } catch(Exception ee)
             {
-                debug("CycleTime: "+ ee.StackTrace);
+                Printer.printTimed(ee.Message +"\n"+ ee.StackTrace);
             }
 
         }
 
-        private void debug(String message)
+        public void changeData(String data)
         {
-            IoC.Get<IMessageService>().AppendMessage(_app.Simulation.Elapsed.ToString() + ": " + message, MessageLevel.Warning);
+
+            /*
+            String[] rows = data.Split('\n');
+            List<double> dh = new List<double>();
+            foreach (String i in rows)
+            {
+                if ( String.IsNullOrWhiteSpace(i)) { break; }
+                String[] vals = i.Split(',');
+                if (vals.Length != 4) {
+                    Printer.print("Malformed Note!");
+                    return;
+                }
+                foreach (String val in vals) {
+                    dh.Add(Double.Parse(val));
+                }
+            }
+            if (dh.Count % 4 != 0) {
+                Printer.print("Something went wrong while parsing note");
+                return;
+            }
+            if (dh.Count / 4 != manip.jointCount) {
+                Printer.print("Note does not describe enough joints!");
+                return;
+            }
+            double[] dhArray = dh.ToArray();
+            controllerWrapper = new newCustomController(dhArray);
+            Printer.print(manip.component.Name + " got a KDL Interface!");
+            */
+
+            XmlDocument doc = new XmlDocument();
+            try
+            {
+                doc.LoadXml(data);
+            }
+            catch (XmlException e)
+            {
+                Printer.print(manip.component.Name + " has not a parseable Xml configuration!");
+                return;
+            }
+
+            p = null;
+            List<double> dh = new List<double>();
+
+            foreach (XmlNode node in doc.FirstChild.ChildNodes)
+            {
+                if (node.Name == "joints")
+                {
+                    XmlNodeList jointList = node.ChildNodes;
+                    if (jointList.Count != manip.jointCount)
+                    {
+                        Printer.print(manip.component.Name + " has not a valid Xml configuration (joint count is not correct)");
+                        return;
+                    }
+                    string[] param = { "a", "alpha", "d", "theta" };
+                    foreach (XmlNode jointNode in node.ChildNodes)
+                    {
+                        if (jointNode.Name != "joint")
+                        {
+                            Printer.print("Check the joints section in the Xml configuration of " + manip.component.Name);
+                            return;
+                        }
+                        for (int i = 0; i < 4; i++)
+                        {
+                            XmlNode paramInstance = jointNode.Attributes.GetNamedItem(param[i]);
+                            if (paramInstance == null)
+                            {
+                                dh.Add(0.0);
+                            }
+                            else
+                            {
+                                dh.Add(Double.Parse(paramInstance.Value));
+                            }
+                        }
+                    }
+                    double[] dhArray = dh.ToArray();
+                    controllerWrapper = new newCustomController(dhArray);
+                }
+                if (node.Name == "permutation")
+                {
+                    List<int> perm = new List<int>();
+                    foreach (String sub in node.InnerText.Split(' '))
+                    {
+                        perm.Add(int.Parse(sub));
+                    }
+                    p = new Permutator(perm.ToArray());
+                }
+            }
+
+            if (controllerWrapper == null)
+            {
+                Printer.print(manip.component.Name + " has not a valid Xml configuration (joints is missing!)");
+                return;
+            }
+
+            if (p == null)
+            {
+                p = new Permutator(manip.jointCount);
+            }
         }
 
+        public void checkDH() { 
+            if(controllerWrapper == null) { return;  }
+            int joint = (int)IoC.Get<IDebugCall>().NumValue[0];
+            double[] joints = new double[manip.jointCount];
+            if (joint >= 0 && joint < manip.jointCount)
+            {
+                for (int i = 0; i < manip.jointCount; i++) {
+                    joints[i] = 0.0;
+                }
+
+                joints[joint] = 90;
+            } else if ( joint < 0){
+                for (int i = 0; i < manip.jointCount; i++)
+                {
+                    joints[i] = 0;
+                }
+            }
+            else
+            {
+                Random rand = new Random();
+                for (int i = 0; i < manip.jointCount; i++)
+                {
+                    joints[i] = 180.0 * rand.NextDouble() - 90.0;
+                }
+            }
+
+            StringBuilder bld = new StringBuilder();
+
+                bld.AppendFormat("{0} jnt:", manip.component.Name);
+                for (int i = 0; i < manip.jointCount; i++) {
+                    bld.AppendFormat(" {0}", joints[i]);
+                }
+                bld.AppendLine("");
+
+                bld.AppendFormat("{0} KDL:", manip.component.Name);
+                double[] kdlJoints = new double[joints.Length];
+            for (int i = 0; i < joints.Length; i++) {
+                kdlJoints[p.p(i)] = joints[i]; 
+            }
+                double[] kdlFK = controllerWrapper.FK(new Vector(kdlJoints)).Elements;
+                for (int i = 0; i < 6; i++)
+                {
+                    bld.AppendFormat(" {0:####0.##}", kdlFK[i]);
+                }
+                bld.AppendLine("");
+
+                bld.AppendFormat("{0} VC :", manip.component.Name);
+                double[] vcFK = StaticKinetics.FK(kinematics, new Vector(joints)).Elements;
+                for (int i = 0; i < 6; i++)
+                {
+                    bld.AppendFormat(" {0:####0.##}", vcFK[i]);
+                }
+
+                Printer.print(bld.ToString());
+            
+        }
+        
     }
 }

@@ -7,34 +7,51 @@ using System.Runtime.InteropServices;
 
 using Caliburn.Micro;
 
+using VisualComponents.Create3D;
+
 using RosiTools.Debugger;
 using RosiTools.Printer;
 
 namespace CustomController
 {
-    [Export(typeof(IPlugin))]
-    public class newCustomController : IPlugin
+    public class newCustomController
     {
-        int id = -1;
-        double[] joints = new double[6];
+        public int id { get; private set; }
 
-        public void Exit()
-        {
+        // // // Conversion Helper Methods
+
+        private Matrix KDLFrameToMatrix(double[] frame) {
+            if (frame.Length != 12)
+            {
+                throw new ArgumentException("The input is not a frame...");
+            }
+            
+            Vector3 n = new Vector3();
+            Vector3 o = new Vector3();
+            Vector3 a = new Vector3();
+            Vector3 p = new Vector3();
+            for (int r = 0; r < 3; r++)
+            {
+                n[r] = frame[r * 3];
+                o[r] = frame[r * 3 + 1];
+                a[r] = frame[r * 3 + 2];
+                p[r] = frame[9 + r];
+            }
+            return new Matrix(n, o, a, p);
         }
 
-        private void setJoint()
-        {
-            int jn = (int)IoC.Get<IDebugCall>().NumValue[0];
-            try
-            {
-                joints[jn] = IoC.Get<IDebugCall>().NumValue[1];
+        private Vector MatrixToVector(Matrix frame) {
+            Vector3 p = frame.GetP();
+            Vector3 rot = frame.GetWPR();
+            Vector ret = new Vector(6);
+            for (int i = 0; i < 3; i++) {
+                ret[i] = p[i];
+                ret[i + 3] = rot[i];
             }
-            catch
-            {
-                Printer.print("Could not assign new Joint Value");
-            }
+            return ret;
         }
 
+        /*
         private void doFK()
         {
             double[] frame = new double[12];
@@ -55,36 +72,38 @@ namespace CustomController
                 bld.AppendLine("");
             }
             Printer.print(bld.ToString());
-        }
+        }*/
 
-        public void Initialize()
-        {
+        public newCustomController(double[] DH) {
+            if (DH.Length % 4 != 0) {
+                throw new ArgumentException("DH must be a multiplicative of 4");
+            }
 
-            double[] DH = { 0, -90, 375,0,
-                            290, 0, 20, -90,
-                            0, 90, 0, 90,
-                            0,-90, 310, 0,
-                            0, 90, 0, 0,
-                            0, 0, 70,0};
-            try
-            {
-                id = AddRobot(DH, 6);
-            }
-            catch (Exception e)
-            {
-                Printer.print(e.GetType().ToString());
-                Printer.print(e.Message);
-                Printer.print(e.StackTrace);
-            }
-            IoC.Get<IDebugCall>().DebugCall[0] += setJoint;
-            IoC.Get<IDebugCall>().DebugCall[1] += doFK;
-            Printer.print("Gotta new Controller with ID: " + id.ToString());
+            int jointCount = DH.Length / 4;
+            id = AddRobot(DH, jointCount);
 
         }
+        
+        // // // // // Calculation Methods
+
+        public Vector FKSpeed(Vector joints, Vector jointsDot) {
+            double[] twist = new double[6];
+            SpeedFK(id, joints.Elements, jointsDot.Elements, twist);
+            return new Vector(twist);
+        }
+
+        public Vector FK(Vector joints) {
+            double[] frame = new double[12];
+            FK(this.id, joints.Elements, frame);
+            return MatrixToVector(KDLFrameToMatrix(frame));
+        }
+
 
         [DllImport("CustomRobot.dll")]
         static extern int AddRobot(double[] DH_Data, int jointCount, double maxSpeed = 2.0, double maxAcceleration = 5.0, double maxJerk = 10.0);
         [DllImport("CustomRobot.dll")]
         static extern int FK(int id, double[] joints, double[] frame);
+        [DllImport("CustomRobot.dll")]
+        static extern int SpeedFK(int id, double[] joints, double[] jointsDot, double[] twist);
     }
 }

@@ -6,6 +6,8 @@
 #include <chainfksolverpos_recursive.hpp>
 #include <frames_io.hpp>
 
+#include "LINInterpolator.h"
+#include <ReflexxesAPI.h>
 
 public class CustomRobot {
 private:
@@ -18,6 +20,8 @@ private:
 	double _maxSpeed;
 	double _maxAcceleration;
 	double _maxJerk;
+
+	LINInterpolater *_lin;
 	
 public:
 	CustomRobot(int id, double *DH_Data, int jointCoint, double maxSpeed = 2.0, double maxAcceleration = 5.0, double maxJerk = 10.0);
@@ -33,6 +37,11 @@ public:
 
 	int FK(const double * joints, double * frame);
 	int SpeedFK(const double * joints, const double * jointsDot, double * twist);
+
+	int LIN(const double *start, const double *stop);
+
+	//Kontextabhängig
+	int step(double * output);
 	
 	int IK(const double * frame, double * joints);
 

@@ -23,7 +23,7 @@ namespace CustomController
     public class VisualRobotManipulatorCollector
     {
 
-        static readonly string BEHAVIOR_NAME = "CustomController";
+        public static readonly string BEHAVIOR_NAME = "CustomController";
         IApplication app;
         Dictionary<string, ISimComponent> robots;
         Dictionary<string, CustomController> controllers;
@@ -121,8 +121,13 @@ namespace CustomController
 
         private void NoteChange(object sender, PropertyChangedEventArgs e)
         {
-            if (isCustomController(((IProperty)sender).Container as IBehavior)) {
-                // TODO controller entsprechend manipulieren
+
+            IBehavior behave = (sender as IProperty).Container as IBehavior;
+            if (isCustomController(behave)) {
+                CustomController control = getController(behave.Node.Component.Name);
+                if (control != null) {
+                    control.changeData((behave as INote).Note);
+                }
             }
         }
 
