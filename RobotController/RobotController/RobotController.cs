@@ -13,7 +13,7 @@ namespace RobotController
     [Export(typeof(IPlugin))]
     public class RobotController : IPlugin
     {
-        private const double TICK_INTERVAL = 0.1;
+        private const double TICK_INTERVAL = 1.0/30.0;
         private IApplication app = null;
         private IMessageService ms = null;
         private static RobotController instance = null;
@@ -229,7 +229,11 @@ namespace RobotController
             {
                 UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
+
                 MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+
+                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
@@ -263,14 +267,17 @@ namespace RobotController
                 {
                     robotList[robot].closestHumanWorldPosition = args.HumanPosition;
                     robotList[robot].angleToHuman = args.Angle;
-                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 10.0);
+                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
                     if(robotList[robot].motionPlan != null)
                     {
                         robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
+                        ms.AppendMessage("Allowed Cartesian Speed: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Error);
                     }
 
                     humanAngleIndicatorZRotation.Value = args.Angle * (180 / Math.PI) + human.TransformationInWorld.GetAxisAngle().W;
-                    //ms.AppendMessage("Angle from Human to robot: " + (args.Angle * (180 / Math.PI)), MessageLevel.Warning);
+                    
+                    
+                    ms.AppendMessage("Angle from Human to robot: " + (args.Angle * (180 / Math.PI))+ " humanAngleIndicatorZRotation.Value: "+ humanAngleIndicatorZRotation.Value, MessageLevel.Warning);
                     //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
                     //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden

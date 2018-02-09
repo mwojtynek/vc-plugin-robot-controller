@@ -102,21 +102,29 @@ namespace RobotController
             MotionPlanRobotDescription description = motionPlan.getMotionPlanRobotDescription();
 
             // we need the current position of the robot to enhance the result of the inverse kinematics
-            VectorOfDouble currentPositionJointAngles = new VectorOfDouble(robot.Controller.Joints.Count);
+            VectorOfDouble currentPositionJointAngles = new VectorOfDouble(robot.RobotController.Joints.Count);
             /*currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[1].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[3].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[4].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[5].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);*/
+            currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[1].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[3].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[4].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[5].Value);
             currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);
+            currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);*/
+
+            currentPositionJointAngles.Add(robot.RobotController.Joints[0].Value);
+            currentPositionJointAngles.Add(robot.RobotController.Joints[1].Value);
+            currentPositionJointAngles.Add(robot.RobotController.Joints[6].Value);
+            currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
+            currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
+            currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
+            currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);
 
             //TODO: Make those frames global?
             IFeature startNode = robot.Component.FindFeature(startFrame);
@@ -132,73 +140,85 @@ namespace RobotController
             Matrix goalPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(goalNode);
             Vector3 startRotation = startPosition.GetWPR();
             Vector3 goalRotation = goalPosition.GetWPR();
-
-            String startHashKey = getPositionHashKey(startFrame, startPosition.GetP(), startRotation, currentPositionJointAngles);
-            String goalHashKey = getPositionHashKey(goalFrame, startPosition.GetP(), startRotation, currentPositionJointAngles);
-            MotionPlan result;
-            String joint = "";
-            foreach (double d in currentPositionJointAngles)
+            VectorOfDouble startJointAngles = currentPositionJointAngles;
+            /*VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
+                                                                startPosition.GetP().Y / 1000,
+                                                                startPosition.GetP().Z / 1000,
+                                                                startRotation.X, startRotation.Y, startRotation.Z, currentPositionJointAngles);
+            if (allZeroes(startJointAngles))
             {
-                joint += rD(d) + ",";
+                startJointAngles = description.getIK(startPosition.GetP().X / 1000,
+                                                                startPosition.GetP().Y / 1000,
+                                                                startPosition.GetP().Z / 1000,
+                                                                startRotation.X, startRotation.Y, startRotation.Z);
+            }*/
+            VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
+                                                                goalPosition.GetP().Y / 1000,
+                                                                goalPosition.GetP().Z / 1000,
+                                                                goalRotation.X, goalRotation.Y, goalRotation.Z);
+            if (allZeroes(goalJointAngles))
+            {
+                goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
+                                                    goalPosition.GetP().Y / 1000,
+                                                    goalPosition.GetP().Z / 1000,
+                                                    goalRotation.X, goalRotation.Y, goalRotation.Z);
             }
-            //motionBrain.Clear();
-            if (!motionBrain.TryGetValue(startFrame + "->"+ goalFrame+ "@"+ joint, out result))
+
+            motionPlan.setStartPosition(startJointAngles);
+            motionPlan.setGoalPosition(goalJointAngles);
+
+            String startOut = "[", goalOut = "[";
+            for (int i = 0; i < startJointAngles.Count; i++)
             {
-                VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
-                                                                    startPosition.GetP().Y / 1000,
-                                                                    startPosition.GetP().Z / 1000,
-                                                                    startRotation.X, startRotation.Y, startRotation.Z, currentPositionJointAngles);
-                VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
-                                                                    goalPosition.GetP().Y / 1000,
-                                                                    goalPosition.GetP().Z / 1000,
-                                                                    goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles);
+                startOut += String.Format("{0:0.00}", startJointAngles[i]) + " ";
+                goalOut += String.Format("{0:0.00}", goalJointAngles[i]) + " ";
+            }
+            startOut += "]";
+            goalOut += "]";
 
-                motionPlan.setStartPosition(startJointAngles);
-                motionPlan.setGoalPosition(goalJointAngles);
+            motionPlan.setSolveTime(10.0);
+            motionPlan.setStateValidityCheckingResolution(0.01);
+            //motionPlan.setReportFirstExactSolution(true);
+            motionPlan.setPlannerByString("RRTConnect");
 
-                String startOut = "[", goalOut = "[";
-                for (int i = 0; i < startJointAngles.Count; i++)
+            if (motionPlan.plan() > 0)
+            {
+                IoC.Get<IMessageService>().AppendMessage("Found motion from " + startFrame + "@" + startOut + " to " + goalFrame + "@" + goalOut + ": ", MessageLevel.Warning);
+                VectorOfDoubleVector plan = motionPlan.getLastResult();
+                foreach (VectorOfDouble jointConfiguration in plan)
                 {
-                    startOut += String.Format("{0:0.00}", startJointAngles[i]) + " ";
-                    goalOut += String.Format("{0:0.00}", goalJointAngles[i]) + " ";
-                }
-                startOut += "]";
-                goalOut += "]";
-
-                motionPlan.setSolveTime(10.0);
-                motionPlan.setStateValidityCheckingResolution(0.001);
-                //motionPlan.setReportFirstExactSolution(true);
-                motionPlan.setPlannerByString("RRTConnect");
-
-                if (motionPlan.plan() > 0)
-                {
-                    IoC.Get<IMessageService>().AppendMessage("Found motion from " + startOut + " to " + goalOut + ": ", MessageLevel.Warning);
-                    VectorOfDoubleVector plan = motionPlan.getLastResult();
-                    foreach (VectorOfDouble jointConfiguration in plan)
+                    String motionBuf = "[", sep = "";
+                    foreach(double jointAngle in jointConfiguration)
                     {
-                        String motionBuf = "[", sep = "";
-                        foreach(double jointAngle in jointConfiguration)
-                        {
-                            motionBuf += sep + String.Format("{0:0.00}", jointAngle);
-                            sep = ",";
-                        }
-
-                        IoC.Get<IMessageService>().AppendMessage(motionBuf + "]", MessageLevel.Warning);
+                        motionBuf += sep + String.Format("{0:0.00}", jointAngle);
+                        sep = ",";
                     }
 
-                    IoC.Get<IMessageService>().AppendMessage("Found motion END", MessageLevel.Warning);
-                    motionBrain.Add(startFrame + "->" + goalFrame + "@" + joint, motionPlan);
-                    return plan;
+                    IoC.Get<IMessageService>().AppendMessage(motionBuf + "]", MessageLevel.Warning);
                 }
-                else
-                {
-                    IoC.Get<IMessageService>().AppendMessage("Failed to find motion from " + startOut + " to " + goalOut + ": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
-                }
-            } else {
-                IoC.Get<IMessageService>().AppendMessage("Loaded precomputed motion from " + startFrame + " to " + goalFrame+ "!", MessageLevel.Warning);
-                return result.getLastResult();
+
+                IoC.Get<IMessageService>().AppendMessage("Found motion END", MessageLevel.Warning);
+                return plan;
             }
+            else
+            {
+                IoC.Get<IMessageService>().AppendMessage("Failed to find motion from " + startOut + " to " + goalOut + ": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
+            }
+            
             return null;
+        }
+
+
+        bool allZeroes(VectorOfDouble check)
+        {
+            foreach (double d in check)
+            {
+                if (d > 1E-10)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }
