@@ -49,7 +49,7 @@ namespace RobotController
                     robot.Component.GetProperty("ArrowAngleZ").Value = alpha * (180 / Math.PI); //param.angleToHuman * (180 / Math.PI);
                                                                                                 // Amount of speed of the robot that is directed towards the human
                     double vHuman = (vx * Math.Cos(alpha)) + (vy * Math.Sin(alpha));
-                    ms.AppendMessage("Vx: " + vx + ", Vy: " + vy + ", VHuman: " + vHuman + "Alpha: " + alpha, MessageLevel.Error);
+                    //ms.AppendMessage("Vx: " + vx + ", Vy: " + vy + ", VHuman: " + vHuman + "Alpha: " + alpha, MessageLevel.Error);
 
                     if (Math.Abs(vHuman - param.currentCartesianSpeed) >= 100)
                     {

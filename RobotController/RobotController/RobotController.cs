@@ -23,6 +23,8 @@ namespace RobotController
         private List<ILaserScanner> laser_scanners = new List<ILaserScanner>();
         private Dictionary<IRobot, RobotParameters> robotList = new Dictionary<IRobot, RobotParameters>();
         private MotionInterpolation MotionInterpolationInstance = null;
+        private ISimComponent human = null;
+        private IProperty humanAngleIndicatorZRotation = null;
 
         //Create Constructor for class
         [ImportingConstructor]
@@ -179,6 +181,14 @@ namespace RobotController
             ms.AppendMessage("Simulation Started", MessageLevel.Warning);
             timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
             timer.StartStopTimer(true);
+            if(app.World.FindComponent("WorksHuman") != null)
+            {
+                human = app.World.FindComponent("WorksHuman");
+                if(human.GetProperty("AngleIndicatorZRotation") != null)
+                {
+                    humanAngleIndicatorZRotation = human.GetProperty("AngleIndicatorZRotation");
+                }
+            }
         }
 
         /// <summary>
@@ -197,8 +207,8 @@ namespace RobotController
                     robotList[robot].currentCartesianSpeed = 0.0;
                     robotList[robot].currentMotionStartTime = 0.0;
                     robotList[robot].motionPlan = null;
-                    robotList[robot].seperationCalculator = null;
-                    robotList[robot].speedCalculator = null;
+                    //robotList[robot].seperationCalculator = null;
+                    //robotList[robot].speedCalculator = null;
                 }
             }
         }
@@ -219,7 +229,7 @@ namespace RobotController
             {
                 UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
@@ -259,6 +269,8 @@ namespace RobotController
                         robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
                     }
 
+                    humanAngleIndicatorZRotation.Value = args.Angle * (180 / Math.PI) + human.TransformationInWorld.GetAxisAngle().W;
+                    //ms.AppendMessage("Angle from Human to robot: " + (args.Angle * (180 / Math.PI)), MessageLevel.Warning);
                     //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
                     //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
