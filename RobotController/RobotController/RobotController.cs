@@ -81,8 +81,9 @@ namespace RobotController
             if (robot.Component.FindFeature("SeparationVisualization") == null)
             {
                 ITransformFeature transformFeature = robot.Component.RootNode.RootFeature.CreateFeature<ITransformFeature>();
-                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty(" 
-                    + robot.Component.FindNode("mountplate").TransformationInWorld.Py + ").Tx(" + robot.Component.FindNode("mountplate").TransformationInWorld.Px + ")";
+                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
+                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + 
+                    (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature seperationVisualization = robot.Component.FindFeature("SeparationVisualizationTransformation").CreateFeature<ICylinderFeature>();
@@ -106,7 +107,8 @@ namespace RobotController
             {
                 ITransformFeature transformFeature = (ITransformFeature) robot.Component.FindFeature("SeparationVisualizationTransformation");
                 transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
+                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + 
+                    (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
