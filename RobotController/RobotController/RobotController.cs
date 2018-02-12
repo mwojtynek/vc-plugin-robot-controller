@@ -272,7 +272,15 @@ namespace RobotController
                 {
                     robotList[robot].closestHumanWorldPosition = args.HumanPosition;
                     robotList[robot].angleToHuman = args.Angle;
-                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
+
+                    double humanDistance = Math.Abs(Vector3.Subtract(robotList[robot].closestHumanWorldPosition, robot.Component.TransformationInWorld.GetP()).Length);
+                    if (humanDistance < robotList[robot].currentSeperationDistance)
+                    {
+                        robotList[robot].allowedCartesianSpeed = 0.0;
+                    } else
+                    {
+                        robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
+                    }
                     if(robotList[robot].motionPlan != null)
                     {
                         robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
