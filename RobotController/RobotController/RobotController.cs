@@ -110,8 +110,14 @@ namespace RobotController
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
-                cylinder.GetProperty("Radius").Value = 
-                    robotList[robot].currentSeperationDistance.ToString();
+                if(robotList[robot].currentSeperationDistance <= 100)
+                {
+                    cylinder.GetProperty("Radius").Value = "100";
+                } else
+                {
+                    cylinder.GetProperty("Radius").Value =
+                        robotList[robot].currentSeperationDistance.ToString();                    
+                }
                 cylinder.Rebuild();
             } else
             {
