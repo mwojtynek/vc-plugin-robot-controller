@@ -27,12 +27,13 @@ namespace RobotController
             ms.AppendMessage("Constructor of StartMovement Action Item called", MessageLevel.Warning);
         }
 
-        Dictionary<String, MotionPlan> motionPlanCollection = new Dictionary<string, MotionPlan>();
+        Dictionary<ISimComponent, MotionPlan> motionPlanCollection = new Dictionary<ISimComponent, MotionPlan>();
         public override void Execute(PropertyCollection args)
         {
             //TODO: Fix the hard index access or at least print out a message if input was wrong
             String robotName = (String)args.GetByIndex(0).Value;
-            robot = app.Value.World.FindComponent(robotName).GetRobot();
+            ISimComponent robotParent = app.Value.World.FindComponent(robotName);
+            robot = robotParent.GetRobot();
 
             String startFrameName = (String)args.GetByIndex(1).Value;
             String goalFrameName = (String)args.GetByIndex(2).Value;
@@ -40,7 +41,17 @@ namespace RobotController
             String payload = (String)args.GetByIndex(4).Value;
 
             RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
-            if(mpm == null)
+            if(!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
+            {
+                mpm = new MotionPlanningManager();
+                motionPlan = mpm.InitializeMotionPlanner(robot,
+                                                        RobotParameters.UrdfFile,
+                                                        RobotParameters.KinStart, RobotParameters.KinEnd,
+                                                        RobotParameters.obstacleModelFile);
+                motionPlanCollection.Add(robotParent, motionPlan);
+                ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
+            }
+/*            if (mpm == null)
             {
                 mpm = new MotionPlanningManager();
                 motionPlan = mpm.InitializeMotionPlanner(robot,
@@ -48,7 +59,7 @@ namespace RobotController
                                                         RobotParameters.KinStart, RobotParameters.KinEnd,
                                                         RobotParameters.obstacleModelFile);
 
-            }
+            }*/
             VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
             if (resultMotion != null)
             {
