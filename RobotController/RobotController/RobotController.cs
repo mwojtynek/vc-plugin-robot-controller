@@ -273,30 +273,32 @@ namespace RobotController
                     robotList[robot].closestHumanWorldPosition = args.HumanPosition;
                     robotList[robot].angleToHuman = args.Angle;
 
-                    double humanDistance = Math.Abs(Vector3.Subtract(robotList[robot].closestHumanWorldPosition, robot.Component.TransformationInWorld.GetP()).Length);
-                    if (humanDistance < robotList[robot].currentSeperationDistance)
-                    {
-                        robotList[robot].allowedCartesianSpeed = 0.0;
-                    } else
-                    {
-                        robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
-                    }
-                    if(robotList[robot].motionPlan != null)
-                    {
-                        robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
-                        ms.AppendMessage("Allowed Cartesian Speed: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Error);
-                    }
-
-                    humanAngleIndicatorZRotation.Value = args.Angle * (180 / Math.PI) + human.TransformationInWorld.GetAxisAngle().W;
-                    
-                    
-                    ms.AppendMessage("Angle from Human to robot: " + (args.Angle * (180 / Math.PI))+ " humanAngleIndicatorZRotation.Value: "+ humanAngleIndicatorZRotation.Value, MessageLevel.Warning);
-                    //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
-
                     //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
                     robotList[robot].currentSeperationDistance = 0.2 * robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed)
                         + 0.8 * robotList[robot].oldSeparationDistance;
 
+
+                    double humanDistance = Math.Abs(Vector3.Subtract(robotList[robot].closestHumanWorldPosition, robot.Component.TransformationInWorld.GetP()).Length);
+                    if (humanDistance < robotList[robot].currentSeperationDistance)
+                    {
+                        setMaxAllowedCartesianSpeed(robot, 0); //robotList[robot].allowedCartesianSpeed = 0.0;
+                    } else
+                    {
+                        setMaxAllowedCartesianSpeed(robot, Convert.ToInt32(robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0)));
+                    }
+                    if(robotList[robot].motionPlan != null)
+                    {
+                        robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
+                        //ms.AppendMessage("Allowed Cartesian Speed: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Error);
+                    }
+
+                    //humanAngleIndicatorZRotation.Value = args.Angle * (180 / Math.PI) + human.TransformationInWorld.GetAxisAngle().W;
+                    
+                    
+                    //ms.AppendMessage("Angle from Human to robot: " + (args.Angle * (180 / Math.PI))+ " humanAngleIndicatorZRotation.Value: "+ humanAngleIndicatorZRotation.Value, MessageLevel.Warning);
+                    //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
+
+                   
                     //ms.AppendMessage(app.Simulation.Elapsed + ";" + args.MoveSpeed + ";" + robotList[robot].currentCartesianSpeed + ";" + robotList[robot].currentSeperationDistance, MessageLevel.Error);
 
                     robotList[robot].oldSeparationDistance = robotList[robot].currentSeperationDistance;
