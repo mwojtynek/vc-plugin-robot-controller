@@ -128,10 +128,15 @@ namespace RobotController
 
             //TODO: Make those frames global?
             IFeature startNode = robot.Component.FindFeature(startFrame);
-            IFeature goalNode = robot.Component.FindFeature(goalFrame);
-            if(startNode == null || goalNode == null)
+            if(startNode == null)
             {
-                IoC.Get<IMessageService>().AppendMessage("Start Or Goal Node was null", MessageLevel.Error);
+                IoC.Get<IMessageService>().AppendMessage("Start Frame \""+ startFrame + "\" was not found.", MessageLevel.Error);
+                return null;
+            }
+            IFeature goalNode = robot.Component.FindFeature(goalFrame);
+            if (goalNode == null)
+            {
+                IoC.Get<IMessageService>().AppendMessage("Goal Frame \"" + goalFrame + "\" was not found.", MessageLevel.Error);
                 return null;
             }
 
@@ -140,6 +145,7 @@ namespace RobotController
             Matrix goalPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(goalNode);
             Vector3 startRotation = startPosition.GetWPR();
             Vector3 goalRotation = goalPosition.GetWPR();
+            Vector3 robotPosition = robot.Component.TransformationInWorld.GetP();
             VectorOfDouble startJointAngles = currentPositionJointAngles;
             /*VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
                                                                 startPosition.GetP().Y / 1000,
