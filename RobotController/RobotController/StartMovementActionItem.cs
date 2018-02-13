@@ -51,15 +51,6 @@ namespace RobotController
                 motionPlanCollection.Add(robotParent, motionPlan);
                 ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
             }
-/*            if (mpm == null)
-            {
-                mpm = new MotionPlanningManager();
-                motionPlan = mpm.InitializeMotionPlanner(robot,
-                                                        RobotParameters.UrdfFile,
-                                                        RobotParameters.KinStart, RobotParameters.KinEnd,
-                                                        RobotParameters.obstacleModelFile);
-
-            }*/
             VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
             if (resultMotion != null)
             {
