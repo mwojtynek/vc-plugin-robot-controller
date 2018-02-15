@@ -18,16 +18,56 @@ namespace RobotController
             ms = IoC.Get<IMessageService>();
         }
 
-        public void CalculateCurrentRobotSpeed(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, double tickInterval)
+        public void CalculateCurrentRobotSpeed(IRobot robot, ref Dictionary<IRobot, RobotParameters> robotList, double tickInterval, Vector3 humanWorldPosition)
         {
+            
             RobotParameters param = robotList[robot];
-            Matrix currentTcpWorldPosition = robot.RobotController.GetMotionTester().CurrentTarget.WorldTargetMatrix;
+            if (robot.Component == null)
+                return;
+            Vector3 currentTcpWorldPosition = robot.Component.TransformationInWorld.GetP() + robot.RobotController.ToolCenterPoint.GetP(); //robot.RobotController.GetMotionTester().CurrentTarget.WorldTargetMatrix;
             //Distance between last and current position
             if (!param.lastTcpWorldPosition.Equals(Matrix.Zero))
             {
-                double distance = (param.lastTcpWorldPosition.GetP() - currentTcpWorldPosition.GetP()).Length;
-                //[mm/s]
-                param.currentCartesianSpeed = distance * 1 / tickInterval;
+                double distance = (param.lastTcpWorldPosition - currentTcpWorldPosition).Length;
+                if (distance != 0.0)
+                {
+                    //[mm/s]
+                    double cartesianSpeed = distance / tickInterval;
+
+                    double dx = currentTcpWorldPosition.X - param.lastTcpWorldPosition.X;
+                    double dy = currentTcpWorldPosition.Y - param.lastTcpWorldPosition.Y;
+                    double dz = currentTcpWorldPosition.Z - param.lastTcpWorldPosition.Z;
+
+                    double d = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+
+                    double vx = dx / d * cartesianSpeed;
+                    double vy = dy / d * cartesianSpeed;
+                    double vz = dz / d * cartesianSpeed;
+
+                    double vxy = Math.Sqrt((vx * vx) + (vy * vy));
+
+                    double alpha = Math.Atan2((humanWorldPosition.Y - currentTcpWorldPosition.Y), (humanWorldPosition.X - currentTcpWorldPosition.X));
+
+                    if (robot.Component.GetProperty("ArrowAngleZ") == null)
+                        return;
+                    //robot.Component.GetProperty("ArrowAngleZ").Value = alpha * (180 / Math.PI); //param.angleToHuman * (180 / Math.PI);
+                                                                                                // Amount of speed of the robot that is directed towards the human
+                    double vHuman = (vx * Math.Cos(alpha)) + (vy * Math.Sin(alpha));
+                    //ms.AppendMessage("Vx: " + vx + ", Vy: " + vy + ", VHuman: " + vHuman + "Alpha: " + alpha, MessageLevel.Error);
+
+                    if (Math.Abs(vHuman - param.currentCartesianSpeed) >= 100)
+                    {
+                        // Do nothing speed calculation seems to be wrong, we don't want spikes
+                    }
+                    else
+                    {
+                        param.currentCartesianSpeed = vHuman;
+                    }
+                    
+                }
+
+
+                
                 //ms.AppendMessage("Current Cartesian Speed measured: " + robotList[robot].currentCartesianSpeed, MessageLevel.Warning);
             }
             param.lastTcpWorldPosition = currentTcpWorldPosition;

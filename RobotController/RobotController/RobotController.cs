@@ -13,7 +13,7 @@ namespace RobotController
     [Export(typeof(IPlugin))]
     public class RobotController : IPlugin
     {
-        private const double TICK_INTERVAL = 0.1;
+        private const double TICK_INTERVAL = 1.0/30.0;
         private IApplication app = null;
         private IMessageService ms = null;
         private static RobotController instance = null;
@@ -23,6 +23,8 @@ namespace RobotController
         private List<ILaserScanner> laser_scanners = new List<ILaserScanner>();
         private Dictionary<IRobot, RobotParameters> robotList = new Dictionary<IRobot, RobotParameters>();
         private MotionInterpolation MotionInterpolationInstance = null;
+        private ISimComponent human = null;
+        private IProperty humanAngleIndicatorZRotation = null;
 
         //Create Constructor for class
         [ImportingConstructor]
@@ -79,8 +81,9 @@ namespace RobotController
             if (robot.Component.FindFeature("SeparationVisualization") == null)
             {
                 ITransformFeature transformFeature = robot.Component.RootNode.RootFeature.CreateFeature<ITransformFeature>();
-                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty(" 
-                    + robot.Component.FindNode("mountplate").TransformationInWorld.Py + ").Tx(" + robot.Component.FindNode("mountplate").TransformationInWorld.Px + ")";
+                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
+                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + 
+                    (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature seperationVisualization = robot.Component.FindFeature("SeparationVisualizationTransformation").CreateFeature<ICylinderFeature>();
@@ -104,12 +107,19 @@ namespace RobotController
             {
                 ITransformFeature transformFeature = (ITransformFeature) robot.Component.FindFeature("SeparationVisualizationTransformation");
                 transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + (robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + (robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
+                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + 
+                    (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
 
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
-                cylinder.GetProperty("Radius").Value = 
-                    robotList[robot].currentSeperationDistance.ToString();
+                if(robotList[robot].currentSeperationDistance <= 100)
+                {
+                    cylinder.GetProperty("Radius").Value = "100";
+                } else
+                {
+                    cylinder.GetProperty("Radius").Value =
+                        robotList[robot].currentSeperationDistance.ToString();                    
+                }
                 cylinder.Rebuild();
             } else
             {
@@ -179,6 +189,14 @@ namespace RobotController
             ms.AppendMessage("Simulation Started", MessageLevel.Warning);
             timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
             timer.StartStopTimer(true);
+            if(app.World.FindComponent("WorksHuman") != null)
+            {
+                human = app.World.FindComponent("WorksHuman");
+                if(human.GetProperty("AngleIndicatorZRotation") != null)
+                {
+                    humanAngleIndicatorZRotation = human.GetProperty("AngleIndicatorZRotation");
+                }
+            }
         }
 
         /// <summary>
@@ -197,8 +215,8 @@ namespace RobotController
                     robotList[robot].currentCartesianSpeed = 0.0;
                     robotList[robot].currentMotionStartTime = 0.0;
                     robotList[robot].motionPlan = null;
-                    robotList[robot].seperationCalculator = null;
-                    robotList[robot].speedCalculator = null;
+                    //robotList[robot].seperationCalculator = null;
+                    //robotList[robot].speedCalculator = null;
                 }
             }
         }
@@ -219,7 +237,11 @@ namespace RobotController
             {
                 UpdateVisualizationDistance(robot);
                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL);
+
+                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+
+                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
@@ -234,7 +256,12 @@ namespace RobotController
                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
                     if(movementFinished is IStringSignal)
                     {
-                        ((IStringSignal) movementFinished).Value = robotList[robot].payloadOnFinishMovement;
+                        IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
+                        
+                        if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
+                        {
+                            movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
+                        }
                     } else {
                         ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
@@ -251,17 +278,36 @@ namespace RobotController
                 IRobot robot = args.Robot;
                 if (robotList.ContainsKey(robot))
                 {
-                    robotList[robot].allowedCartesianSpeed = robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0);
+                    robotList[robot].closestHumanWorldPosition = args.HumanPosition;
+                    robotList[robot].angleToHuman = args.Angle;
+
+                    //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
+                    robotList[robot].currentSeperationDistance = 0.2 * robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed)
+                        + 0.8 * robotList[robot].oldSeparationDistance;
+
+
+                    double humanDistance = Math.Abs(Vector3.Subtract(robotList[robot].closestHumanWorldPosition, robot.Component.TransformationInWorld.GetP()).Length);
+                    if (humanDistance < robotList[robot].currentSeperationDistance)
+                    {
+                        setMaxAllowedCartesianSpeed(robot, 0); //robotList[robot].allowedCartesianSpeed = 0.0;
+                    } else
+                    {
+                        setMaxAllowedCartesianSpeed(robot, Convert.ToInt32(robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0)));
+                    }
                     if(robotList[robot].motionPlan != null)
                     {
                         robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
+                        //ms.AppendMessage("Allowed Cartesian Speed: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Error);
                     }
 
+                    //humanAngleIndicatorZRotation.Value = args.Angle * (180 / Math.PI) + human.TransformationInWorld.GetAxisAngle().W;
+                    
+                    
+                    //ms.AppendMessage("Angle from Human to robot: " + (args.Angle * (180 / Math.PI))+ " humanAngleIndicatorZRotation.Value: "+ humanAngleIndicatorZRotation.Value, MessageLevel.Warning);
                     //ms.AppendMessage("Allowed Speed from SSM: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Warning);
 
-                    //Gewichtetes Update der Separation Daten um Ausschläge ("Sensorrauschen") zu vermeiden
-                    robotList[robot].currentSeperationDistance = 0.3 * robotList[robot].seperationCalculator.GetSeparationDistance(args.MoveSpeed, robotList[robot].currentCartesianSpeed)
-                        + 0.7 * robotList[robot].oldSeparationDistance;
+                   
+                    //ms.AppendMessage(app.Simulation.Elapsed + ";" + args.MoveSpeed + ";" + robotList[robot].currentCartesianSpeed + ";" + robotList[robot].currentSeperationDistance, MessageLevel.Error);
 
                     robotList[robot].oldSeparationDistance = robotList[robot].currentSeperationDistance;
 
