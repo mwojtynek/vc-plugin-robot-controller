@@ -2,7 +2,7 @@
 
 #include "MotionHelper.h"
 #include <vector>
-#include <nlopt.hpp>
+#include <nlopt.h>
 
-nlopt::result solve(Motion &motion, std::vector<double> &x);
+nlopt_result solve(std::vector<Motion *> *motion, double *x, int size);
 

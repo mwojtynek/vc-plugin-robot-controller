@@ -2,6 +2,9 @@
 
 #include<vector>
 
+#define TIME_SAMPLES 7  // Halt fuer die 7 Phasen der Bewegung
+#define JERK_DATA	 4	// Die vier Phasen mit Jerk
+
 typedef enum {
 	Jtype = 0,
 	Atype = 1,
@@ -21,25 +24,19 @@ double absoluteTime(const double *times, int k);
 
 class Motion {
 private:
-	int len;
-	std::vector<double> *_times;
-	std::vector<double> _jerks;
+	int _id;
+		
 	Kin _start;
-	//Nur zur Beschreibung. Wird nie verwendet
 	Kin _end;
 	Kin _bound;
 
 public:
-	Motion(Kin start, Kin end, Kin bound, std::vector<double> * times);
-
-	void setJerk(int segment, double newJerk);
-	void setJerk(std::vector<double> newJerks);
-
-	double getValue(double time, KinType typebool);
-	Kin getValue(double time);
+	Motion(Kin start, Kin end, Kin bound, int id);
+	
+	double getValue(const double * states, double time, KinType typebool);
+	Kin getValue(const double * states, double time);
 
 	Kin getStart();
 	Kin getEnd();
 	Kin getBound();
-	int getPhaseCount();
 };

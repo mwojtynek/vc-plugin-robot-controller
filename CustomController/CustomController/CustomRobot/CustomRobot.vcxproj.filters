@@ -24,12 +24,6 @@
     <ClCompile Include="Conversions.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
-    <ClCompile Include="LINInterpolator.cpp">
-      <Filter>Quelldateien</Filter>
-    </ClCompile>
-    <ClCompile Include="PTPInterpolator.cpp">
-      <Filter>Quelldateien</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CustomRobot.h">
@@ -39,12 +33,6 @@
       <Filter>Headerdateien</Filter>
     </ClInclude>
     <ClInclude Include="Conversions.h">
-      <Filter>Headerdateien</Filter>
-    </ClInclude>
-    <ClInclude Include="LINInterpolator.h">
-      <Filter>Headerdateien</Filter>
-    </ClInclude>
-    <ClInclude Include="PTPInterpolator.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>

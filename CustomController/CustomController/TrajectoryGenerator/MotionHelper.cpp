@@ -1,5 +1,7 @@
 #include "MotionHelper.h"
 
+#define JERK(segment)	((segment%2?0.0:states[TIME_SAMPLES + JERK_DATA * _id + segment / 2]))
+
 double absoluteTime(const std::vector<double> &times, int k) {
 	double sum = 0.0;
 	for (int i = 0; i < k + 1; i++) {
@@ -16,36 +18,18 @@ double absoluteTime(const double *times, int k) {
 	return sum;
 }
 
-Motion::Motion(Kin start, Kin end, Kin bound, std::vector<double> *times)
+Motion::Motion(Kin start, Kin end, Kin bound, int id)
 {
-	len = times->size();
-	_times = times;
-	_jerks = std::vector<double>(len, 0);
+	_id = id;
 
 	_start = start;
 	_end = end;
 	_bound = bound;
 }
 
-void Motion::setJerk(int segment, double newJerk)
+double Motion::getValue(const double * states, double time, KinType typebool)
 {
-	if (segment < 0 || segment >= _jerks.size()) {
-		throw - 1;
-	}
-	_jerks[segment] = newJerk;
-}
-
-void Motion::setJerk(std::vector<double> newJerks)
-{
-	if (_jerks.size() != newJerks.size()) {
-		throw - 1;
-	}
-	_jerks = newJerks;
-}
-
-double Motion::getValue(double time, KinType typebool)
-{
-	Kin current = getValue(time);
+	Kin current = getValue(states, time);
 	switch (typebool) {
 	case Jtype: return current.j;
 	case Atype: return current.a;
@@ -55,31 +39,32 @@ double Motion::getValue(double time, KinType typebool)
 	}
 }
 
-Kin Motion::getValue(double time)
+Kin Motion::getValue(const double * states, double time)
 {
 	int segment;
+	
+	for (segment = 0; segment < TIME_SAMPLES; segment++) {
 
-	for (segment = 0; segment < _times->size(); segment++) {
-
-		if (time <= (*_times)[segment]) break;
-		time -= (*_times)[segment];
+		if (time <= states[segment]) break;
+		time -= states[segment];
 	}
+
 	Kin current = _start;
 
 	double dt = 0.0;
 	for (int i = 0; i < segment; i++) {
-		dt = (*_times)[i];
-		current.s += ((_jerks[i] / 6 * dt + current.a / 2) * dt + current.v) * dt;
-		current.v += (_jerks[i] / 2 * dt + current.a) * dt;
-		current.a += _jerks[i] * dt;
+		dt = states[i];
+		current.s += ((JERK(i) / 6 * dt + current.a / 2) * dt + current.v) * dt;
+		current.v += (JERK(i) / 2 * dt + current.a) * dt;
+		current.a += JERK(i) * dt;
 
 	}
 
 	dt = time;
-	current.j = _jerks[segment];
-	current.s += ((_jerks[segment] / 6 * dt + current.a / 2) * dt + current.v) * dt;
-	current.v += (_jerks[segment] / 2 * dt + current.a) * dt;
-	current.a += _jerks[segment] * dt;
+	current.j = JERK(segment);
+	current.s += ((current.j / 6 * dt + current.a / 2) * dt + current.v) * dt;
+	current.v += (current.j / 2 * dt + current.a) * dt;
+	current.a += current.j * dt;
 
 	return current;
 }
@@ -97,9 +82,4 @@ Kin Motion::getEnd()
 Kin Motion::getBound()
 {
 	return _bound;
-}
-
-int Motion::getPhaseCount()
-{
-	return len;
 }
