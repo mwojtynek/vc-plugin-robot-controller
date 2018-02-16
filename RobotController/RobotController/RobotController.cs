@@ -82,9 +82,12 @@ namespace RobotController
             {
                 ITransformFeature transformFeature = robot.Component.RootNode.RootFeature.CreateFeature<ITransformFeature>();
                 transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + 
-                    (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
+                    + -(robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" +
+                    + -(robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
+
+                //(robot.Component.TransformationInWorld.Py +  robot.Component.FindNode("mountplate").TransformationInWorld.Py )
+                //(robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px )
 
                 ICylinderFeature seperationVisualization = robot.Component.FindFeature("SeparationVisualizationTransformation").CreateFeature<ICylinderFeature>();
                 // true would remove the top and bottom of the cylinder, but backfaces of the inside of the cylinder are not rendered
@@ -107,9 +110,12 @@ namespace RobotController
             {
                 ITransformFeature transformFeature = (ITransformFeature) robot.Component.FindFeature("SeparationVisualizationTransformation");
                 transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + (robot.Component.TransformationInWorld.Py + robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" + 
-                    (robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
+                    + -(robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" +
+                    + -(robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
                 transformFeature.SetName("SeparationVisualizationTransformation");
+
+                //(robot.Component.TransformationInWorld.Py +
+                // (robot.Component.TransformationInWorld.Px + 
 
                 ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
                 if(robotList[robot].currentSeperationDistance <= 100)
