@@ -80,18 +80,17 @@ namespace RobotController
         /// <param name="initialRadius"></param>The initial radius for the cylinder.
         private void VisualizeSeperationDistance(IRobot robot, double initialRadius)
         {
-            if (robot.Component.FindFeature("SeparationVisualization") == null)
+            if (app.World.FindComponent("SeparationVisualization_" + robot.Name) == null)
             {
-                ITransformFeature transformFeature = robot.Component.RootNode.RootFeature.CreateFeature<ITransformFeature>();
-                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + -(robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" +
-                    + -(robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
-                transformFeature.SetName("SeparationVisualizationTransformation");
+                ISimComponent component = app.World.CreateComponent("SeparationVisualization_" + robot.Name);
+                ISimNode node = robot.Component.FindNode("mountplate");
 
-                //(robot.Component.TransformationInWorld.Py +  robot.Component.FindNode("mountplate").TransformationInWorld.Py )
-                //(robot.Component.TransformationInWorld.Px + robot.Component.FindNode("mountplate").TransformationInWorld.Px )
+                Matrix matrix = component.TransformationInReference;
+                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 0.0));
 
-                ICylinderFeature seperationVisualization = robot.Component.FindFeature("SeparationVisualizationTransformation").CreateFeature<ICylinderFeature>();
+                component.TransformationInReference = matrix;
+
+                ICylinderFeature seperationVisualization = component.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
                 // true would remove the top and bottom of the cylinder, but backfaces of the inside of the cylinder are not rendered
                 //seperationVisualization.GetProperty("Caps").Value = false; 
                 seperationVisualization.GetProperty("Height").Value = "3000.0";
@@ -108,18 +107,17 @@ namespace RobotController
         /// <param name="robot"></param>The robot for which the update should be made.
         private void UpdateVisualizationDistance(IRobot robot)
         {
-            if (robot.Component != null && robot.Component.FindFeature("SeparationVisualization") != null)
+            if (app.World.FindComponent("SeparationVisualization_" + robot.Name) != null)
             {
-                ITransformFeature transformFeature = (ITransformFeature) robot.Component.FindFeature("SeparationVisualizationTransformation");
-                transformFeature.GetProperty("Expression").Value = "Tz(-" + robot.Component.TransformationInWorld.Pz + ").Ty("
-                    + -(robot.Component.TransformationInWorld.Py - robot.Component.FindNode("mountplate").TransformationInWorld.Py) + ").Tx(" +
-                    + -(robot.Component.TransformationInWorld.Px - robot.Component.FindNode("mountplate").TransformationInWorld.Px) + ")";
-                transformFeature.SetName("SeparationVisualizationTransformation");
+                ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + robot.Name);
+                ISimNode node = robot.Component.FindNode("mountplate");
 
-                //(robot.Component.TransformationInWorld.Py +
-                // (robot.Component.TransformationInWorld.Px + 
+                Matrix matrix = comp.TransformationInReference;
+                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 0.0));
 
-                ICylinderFeature cylinder = (ICylinderFeature) robot.Component.FindFeature("SeparationVisualization");
+                comp.TransformationInReference = matrix;
+                
+                ICylinderFeature cylinder = (ICylinderFeature) app.World.FindComponent("SeparationVisualization_" + robot.Name).FindFeature("SeparationVisualization");
                 if(robotList[robot].currentSeperationDistance <= 100)
                 {
                     cylinder.GetProperty("Radius").Value = "100";
