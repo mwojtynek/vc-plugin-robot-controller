@@ -39,7 +39,7 @@ namespace RobotController
 
             description.setRobotPosition(robot.Component.TransformationInWorld.GetP().X / 1000,
                                         robot.Component.TransformationInWorld.GetP().Y / 1000,
-                                        robot.Component.TransformationInWorld.GetP().Z / 1000);
+                                        (robot.Component.TransformationInWorld.GetP().Z + 2) / 1000);
             description.setRobotRotation(wpr.X, wpr.Y, wpr.Z);
 
             motionPlan.addObstacle(pathToObstacleFile);
@@ -187,7 +187,6 @@ namespace RobotController
             motionPlan.setStateValidityCheckingResolution(0.01);
             //motionPlan.setReportFirstExactSolution(true);
             motionPlan.setPlannerByString("RRTConnect");
-
             if (motionPlan.plan() > 0)
             {
                 IoC.Get<IMessageService>().AppendMessage("Found motion from " + startFrame + "@" + startOut + " to " + goalFrame + "@" + goalOut + ": ", MessageLevel.Warning);
@@ -209,6 +208,7 @@ namespace RobotController
             }
             else
             {
+                motionPlan.showSetupInInspector();
                 IoC.Get<IMessageService>().AppendMessage("Failed to find motion from " + startOut + " to " + goalOut + ": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
             }
             

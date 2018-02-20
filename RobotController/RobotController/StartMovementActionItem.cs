@@ -41,7 +41,8 @@ namespace RobotController
             String payload = (String)args.GetByIndex(4).Value;
 
             RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
-            if(!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
+            motionPlanCollection.Clear();
+            if (!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
             {
                 mpm = new MotionPlanningManager();
                 motionPlan = mpm.InitializeMotionPlanner(robot,

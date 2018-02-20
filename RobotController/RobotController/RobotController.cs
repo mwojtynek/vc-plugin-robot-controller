@@ -293,12 +293,18 @@ namespace RobotController
                     double humanDistance = Math.Abs(Vector3.Subtract(robotList[robot].closestHumanWorldPosition, robot.Component.TransformationInWorld.GetP()).Length);
                     if (humanDistance < robotList[robot].currentSeperationDistance)
                     {
-                        setMaxAllowedCartesianSpeed(robot, 0); //robotList[robot].allowedCartesianSpeed = 0.0;
+                        /*setMaxAllowedCartesianSpeed(robot, 0); //robotList[robot].allowedCartesianSpeed = 0.0;
+                    } else
+                    {*/
+                        int result = Convert.ToInt32(robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0));
+                        ms.AppendMessage("Setting robot cartesian speed limit to " + result, MessageLevel.Warning);
+                        setMaxAllowedCartesianSpeed(robot, result);
                     } else
                     {
-                        setMaxAllowedCartesianSpeed(robot, Convert.ToInt32(robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0)));
+                        setMaxAllowedCartesianSpeed(robot, 400);
+                        ms.AppendMessage("Setting robot cartesian speed limit to 400", MessageLevel.Warning);
                     }
-                    if(robotList[robot].motionPlan != null)
+                    if (robotList[robot].motionPlan != null)
                     {
                         robotList[robot].motionPlan.getMotionInterpolator().setCartesianSpeedLimit(robotList[robot].allowedCartesianSpeed);
                         //ms.AppendMessage("Allowed Cartesian Speed: " + robotList[robot].allowedCartesianSpeed, MessageLevel.Error);
@@ -362,11 +368,27 @@ namespace RobotController
                 ms.AppendMessage("Adding LaserScanner from RobotController!", MessageLevel.Warning);
                 LaserScanner_Virtual ls = new LaserScanner_Virtual(args.Component, app);
                 ls.OnHumanDetected += OutputOnHumanDetected;
+                ls.OnHumanLost += OutputOnHumanLost;
                 laser_scanners.Add(ls);
                 ms.AppendMessage("LaserScanners: " + laser_scanners.Count(), MessageLevel.Warning);
             }
         }
-        
 
+        
+        private void OutputOnHumanLost(object sender, LaserScannerHumanLostEventArgs e)
+        {
+            if(e.HumansLeftCount == 0)
+            {
+                if (robotList.ContainsKey(e.Robot))
+                {
+                    // we can reset the cartesian speed of the robot
+                    ms.AppendMessage(e.Robot.Name + " restored cartesian speed to "+ robotList[e.Robot].maxCartesianSpeed + "!", MessageLevel.Warning);
+                    robotList[e.Robot].allowedCartesianSpeed = robotList[e.Robot].maxCartesianSpeed;
+                } else
+                {
+                    ms.AppendMessage("OutputOnHumanLost failed to find referenced robot!", MessageLevel.Warning);
+                }
+            }
+        }
     }
 }
