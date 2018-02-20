@@ -40,15 +40,20 @@ namespace RobotController
             int maxAllowedCartesianSpeed = (int)args.GetByIndex(3).Value;
             String payload = (String)args.GetByIndex(4).Value;
 
+            RobotSection parameter = ConfigReader.readSection(robotName);
+
             RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
             motionPlanCollection.Clear();
             if (!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
             {
                 mpm = new MotionPlanningManager();
                 motionPlan = mpm.InitializeMotionPlanner(robot,
-                                                        RobotParameters.UrdfFile,
+                                                        //RobotParameters.UrdfFile,
+                                                        parameter.urdfFile.Path,
                                                         RobotParameters.KinStart, RobotParameters.KinEnd,
-                                                        RobotParameters.obstacleModelFile);
+                                                        parameter.obsFile.Path
+                                                        //RobotParameters.obstacleModelFile
+                                                        );
                 motionPlanCollection.Add(robotParent, motionPlan);
                 ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
             }

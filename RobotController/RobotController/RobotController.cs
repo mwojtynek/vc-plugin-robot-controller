@@ -1,5 +1,6 @@
 ﻿using Caliburn.Micro;
 using Rosi.Components.Sensors;
+using RosiTools.PluginManager;
 using SpeedAndSeparationMonitoring;
 using System;
 using System.Collections.Generic;
@@ -25,17 +26,18 @@ namespace RobotController
         private MotionInterpolation MotionInterpolationInstance = null;
         private ISimComponent human = null;
         private IProperty humanAngleIndicatorZRotation = null;
-
+        
+        
         //Create Constructor for class
         [ImportingConstructor]
         public RobotController([Import(typeof(IApplication))] IApplication app)
         {
             this.app = app;
             instance = this;
+
             MotionPlanningManagerInstance = new MotionPlanningManager();
             MotionInterpolationInstance = new MotionInterpolation();
-            this.app.Simulation.SimulationStarted += SimulationStarted;
-            this.app.Simulation.SimulationStopped += SimulationStopped;
+
         }
 
         public static RobotController getInstance()
@@ -173,6 +175,14 @@ namespace RobotController
         /// </summary>
         public void Initialize()
         {
+            if (!(IoC.Get<IPluginManager>().queryPlugin(PluginCategory.Controller))) {
+                return;
+            }
+            ConfigReader.init();
+
+
+            this.app.Simulation.SimulationStarted += SimulationStarted;
+            this.app.Simulation.SimulationStopped += SimulationStopped;
             //IoC.Get<ISimulationService>().PropertyChanged += JointConfigurationChanged;
             ms = IoC.Get<IMessageService>();
             statisticsManager = this.app.StatisticsManager;
