@@ -264,7 +264,22 @@ namespace RobotController
                     VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(TICK_INTERVAL);
 
                     robot.RobotController.InvalidateKinChains();
-                    robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
+                    
+                    if (robot.RobotController.Joints.Count == 7)
+                    {
+                        robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
+                    } else
+                    {
+                        double[] firstJointAngleCollectionSorted = new double[result.Count];
+                        firstJointAngleCollectionSorted[0] = result.ElementAt(0); //A1
+                        firstJointAngleCollectionSorted[1] = result.ElementAt(1); //A2
+                        firstJointAngleCollectionSorted[2] = result.ElementAt(2); //A3
+                        firstJointAngleCollectionSorted[3] = result.ElementAt(3); //A4
+                        firstJointAngleCollectionSorted[4] = result.ElementAt(4); //A5
+                        firstJointAngleCollectionSorted[5] = result.ElementAt(5); //A6
+                        robot.RobotController.SetJointValues(firstJointAngleCollectionSorted);
+                    }
+                
                 } else {
                     // set movement done!
                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");

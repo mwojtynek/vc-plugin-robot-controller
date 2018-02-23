@@ -103,28 +103,28 @@ namespace RobotController
 
             // we need the current position of the robot to enhance the result of the inverse kinematics
             VectorOfDouble currentPositionJointAngles = new VectorOfDouble(robot.RobotController.Joints.Count);
-            /*currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[1].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[3].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[4].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[5].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[0].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[1].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[3].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[4].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[5].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[6].Value);
-            currentPositionJointAngles.Add(robot.Controller.Joints[2].Value);*/
 
-            currentPositionJointAngles.Add(robot.RobotController.Joints[0].Value);
-            currentPositionJointAngles.Add(robot.RobotController.Joints[1].Value);
-            currentPositionJointAngles.Add(robot.RobotController.Joints[6].Value);
-            currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
-            currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
-            currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
-            currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);
+            if (robot.RobotController.Joints.Count == 7)
+            {
+                currentPositionJointAngles.Add(robot.RobotController.Joints[0].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[1].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[6].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);
+            } else
+            {
+                currentPositionJointAngles.Add(robot.RobotController.Joints[0].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[1].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);                
+            }
+       
+
+
 
             //TODO: Make those frames global?
             IFeature startNode = robot.Component.FindFeature(startFrame);
@@ -191,6 +191,7 @@ namespace RobotController
             {
                 IoC.Get<IMessageService>().AppendMessage("Found motion from " + startFrame + "@" + startOut + " to " + goalFrame + "@" + goalOut + ": ", MessageLevel.Warning);
                 VectorOfDoubleVector plan = motionPlan.getLastResult();
+                //motionPlan.showSetupInInspector();
                 foreach (VectorOfDouble jointConfiguration in plan)
                 {
                     String motionBuf = "[", sep = "";
