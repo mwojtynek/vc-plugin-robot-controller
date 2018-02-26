@@ -14,7 +14,7 @@ namespace RobotController
     [Export(typeof(IPlugin))]
     public class RobotController : IPlugin
     {
-        private const double TICK_INTERVAL = 1.0/30.0;
+        private const double TICK_INTERVAL = 1.0;
         private IApplication app = null;
         private IMessageService ms = null;
         private static RobotController instance = null;
@@ -191,6 +191,7 @@ namespace RobotController
 
             app.World.ComponentAdded += World_ComponentAdded;
             app.World.ComponentRemoving += World_ComponentRemoving;
+            IoC.Get<ISimulationService>().PropertyChanged += SimulationPropertyChanged;
         }
 
         /// <summary>
@@ -201,9 +202,11 @@ namespace RobotController
         public void SimulationStarted(object sender, EventArgs e)
         {
             ms.AppendMessage("Simulation Started", MessageLevel.Warning);
-            timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
-            timer.StartStopTimer(true);
-            if(app.World.FindComponent("WorksHuman") != null)
+            lastTime = 0.0;
+            //timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
+            //timer.StartStopTimer(true);
+
+            if (app.World.FindComponent("WorksHuman") != null)
             {
                 human = app.World.FindComponent("WorksHuman");
                 if(human.GetProperty("AngleIndicatorZRotation") != null)
@@ -235,13 +238,12 @@ namespace RobotController
             }
         }
 
-        /// <summary>
-        /// The general update loop which has to trigger everything that should be computed for each iteration.
-        /// </summary>
-        /// <param name="sender"></param>The source of the tick event.
-        /// <param name="e"></param>The tick event itself.
-        public void RegularTick(object sender, EventArgs e)
+        double lastTime = 0.0;
+        public void SimulationPropertyChanged(object sender, EventArgs e)
         {
+            double deltaTime = app.Simulation.Elapsed - lastTime;
+            lastTime = app.Simulation.Elapsed;
+            
             foreach (ILaserScanner laserScanner in laser_scanners)
             {
                 laserScanner.Scan();
@@ -250,25 +252,23 @@ namespace RobotController
             foreach (IRobot robot in robotList.Keys)
             {
                 UpdateVisualizationDistance(robot);
-                //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
 
                 MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
-
-                //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
-
                 RobotParameters param = robotList[robot];
                 if (param.motionPlan == null)
                     continue;
                 MotionInterpolator mp = param.motionPlan.getMotionInterpolator();
-                if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone()){
-                    VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(TICK_INTERVAL);
+                if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone())
+                {
+                    VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(deltaTime);
 
                     robot.RobotController.InvalidateKinChains();
-                    
+
                     if (robot.RobotController.Joints.Count == 7)
                     {
                         robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
-                    } else
+                    }
+                    else
                     {
                         double[] firstJointAngleCollectionSorted = new double[result.Count];
                         firstJointAngleCollectionSorted[0] = result.ElementAt(0); //A1
@@ -279,26 +279,93 @@ namespace RobotController
                         firstJointAngleCollectionSorted[5] = result.ElementAt(5); //A6
                         robot.RobotController.SetJointValues(firstJointAngleCollectionSorted);
                     }
-                
-                } else {
+
+                }
+                else
+                {
                     // set movement done!
                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
-                    if(movementFinished is IStringSignal)
+                    if (movementFinished is IStringSignal)
                     {
                         IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
-                        
+
                         if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
                         {
                             movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
                         }
-                    } else {
+                    }
+                    else
+                    {
                         ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
 
                 }
             }
         }
-        
+        /// <summary>
+        /// The general update loop which has to trigger everything that should be computed for each iteration.
+        /// </summary>
+        /// <param name="sender"></param>The source of the tick event.
+        /// <param name="e"></param>The tick event itself.
+        /* public void RegularTick(object sender, EventArgs e)
+         {
+             foreach (ILaserScanner laserScanner in laser_scanners)
+             {
+                 laserScanner.Scan();
+             }
+
+             foreach (IRobot robot in robotList.Keys)
+             {
+                 UpdateVisualizationDistance(robot);
+                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
+
+                 MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+
+                 //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+
+                 RobotParameters param = robotList[robot];
+                 if (param.motionPlan == null)
+                     continue;
+                 MotionInterpolator mp = param.motionPlan.getMotionInterpolator();
+                 if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone()){
+                     VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(TICK_INTERVAL);
+
+                     robot.RobotController.InvalidateKinChains();
+
+                     if (robot.RobotController.Joints.Count == 7)
+                     {
+                         robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
+                     } else
+                     {
+                         double[] firstJointAngleCollectionSorted = new double[result.Count];
+                         firstJointAngleCollectionSorted[0] = result.ElementAt(0); //A1
+                         firstJointAngleCollectionSorted[1] = result.ElementAt(1); //A2
+                         firstJointAngleCollectionSorted[2] = result.ElementAt(2); //A3
+                         firstJointAngleCollectionSorted[3] = result.ElementAt(3); //A4
+                         firstJointAngleCollectionSorted[4] = result.ElementAt(4); //A5
+                         firstJointAngleCollectionSorted[5] = result.ElementAt(5); //A6
+                         robot.RobotController.SetJointValues(firstJointAngleCollectionSorted);
+                     }
+
+                 } else {
+                     // set movement done!
+                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
+                     if(movementFinished is IStringSignal)
+                     {
+                         IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
+
+                         if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
+                         {
+                             movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
+                         }
+                     } else {
+                         ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                     }
+
+                 }
+             }
+         }*/
+
         void OutputOnHumanDetected(object sender, LaserScannerHumanDetectedEventArgs args)
         {
             //ms.AppendMessage("Detected Human with moveSpeed: " +args.MoveSpeed, MessageLevel.Warning);
