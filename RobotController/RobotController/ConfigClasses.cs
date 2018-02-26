@@ -36,6 +36,30 @@ namespace RobotController
             }
             return sec;
         }
+
+        internal static StapleSection readStapleConfig()
+        {
+            StapleSection sec = config.Sections["staplePath"] as StapleSection;
+
+            if (sec == null)
+            {
+                sec = new StapleSection();
+                sec.staplePath.Path = "C:\\local\\autoLabel\\itsowl-tt-autolabel\\autoLabel-Sim-Models\\stl-files\\";
+                config.Sections.Add("staplePath", sec);
+                config.Save();
+            }
+            return sec;
+        }
+    }
+
+    public class StapleSection: ConfigurationSection
+    {
+        [ConfigurationProperty("staplePath", IsDefaultCollection = true)]
+        public StaplePath staplePath
+        {
+            get { return (StaplePath)base["staplePath"]; }
+            set { base["staplePath"] = value; }
+        }
     }
 
     public class RobotSection: ConfigurationSection
@@ -57,6 +81,19 @@ namespace RobotController
             set { base["ObstacleFile"] = value; }
         }
         
+    }
+
+
+    public sealed class StaplePath : ConfigurationElement
+    {
+        [ConfigurationProperty("Path",
+            DefaultValue = "C:\\local\\autoLabel\\itsowl-tt-autolabel\\autoLabel-Sim-Models\\stl-files\\",
+           IsDefaultCollection = true)]
+        public String Path
+        {
+            get { return (string)base["Path"]; }
+            set { base["Path"] = value; }
+        }
     }
 
     public sealed class UrdfFile : ConfigurationElement

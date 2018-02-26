@@ -120,17 +120,17 @@ namespace RobotController
                 currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
                 currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
                 currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
-                currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);                
+                currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);
             }
-       
+
 
 
 
             //TODO: Make those frames global?
             IFeature startNode = robot.Component.FindFeature(startFrame);
-            if(startNode == null)
+            if (startNode == null)
             {
-                IoC.Get<IMessageService>().AppendMessage("Start Frame \""+ startFrame + "\" was not found.", MessageLevel.Error);
+                IoC.Get<IMessageService>().AppendMessage("Start Frame \"" + startFrame + "\" was not found.", MessageLevel.Error);
                 return null;
             }
             IFeature goalNode = robot.Component.FindFeature(goalFrame);
@@ -147,17 +147,7 @@ namespace RobotController
             Vector3 goalRotation = goalPosition.GetWPR();
             Vector3 robotPosition = robot.Component.TransformationInWorld.GetP();
             VectorOfDouble startJointAngles = currentPositionJointAngles;
-            /*VectorOfDouble startJointAngles = description.getIK(startPosition.GetP().X / 1000,
-                                                                startPosition.GetP().Y / 1000,
-                                                                startPosition.GetP().Z / 1000,
-                                                                startRotation.X, startRotation.Y, startRotation.Z, currentPositionJointAngles);
-            if (allZeroes(startJointAngles))
-            {
-                startJointAngles = description.getIK(startPosition.GetP().X / 1000,
-                                                                startPosition.GetP().Y / 1000,
-                                                                startPosition.GetP().Z / 1000,
-                                                                startRotation.X, startRotation.Y, startRotation.Z);
-            }*/
+
             VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
                                                                 goalPosition.GetP().Y / 1000,
                                                                 goalPosition.GetP().Z / 1000,
@@ -175,10 +165,11 @@ namespace RobotController
             motionPlan.setGoalPosition(goalJointAngles);
 
             String startOut = "[", goalOut = "[";
-            for (int i = 0; i < startJointAngles.Count; i++)
-            {
-                startOut += String.Format("{0:0.00}", startJointAngles[i]) + " ";
-                goalOut += String.Format("{0:0.00}", goalJointAngles[i]) + " ";
+            for (int i = 0; i < startJointAngles.Count; i++){
+                startOut += String.Format("{0:0.000}", startJointAngles[i]) + " ";
+            }
+            for (int i = 0; i < goalJointAngles.Count; i++) {
+                goalOut += String.Format("{0:0.000}", goalJointAngles[i]) + " ";
             }
             startOut += "]";
             goalOut += "]";
@@ -197,7 +188,7 @@ namespace RobotController
                     String motionBuf = "[", sep = "";
                     foreach(double jointAngle in jointConfiguration)
                     {
-                        motionBuf += sep + String.Format("{0:0.00}", jointAngle);
+                        motionBuf += sep + String.Format("{0:0.000}", jointAngle);
                         sep = ",";
                     }
 
