@@ -202,7 +202,6 @@ namespace RobotController
         public void SimulationStarted(object sender, EventArgs e)
         {
             ms.AppendMessage("Simulation Started", MessageLevel.Warning);
-            lastTime = 0.0;
             //timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
             //timer.StartStopTimer(true);
 
@@ -232,26 +231,29 @@ namespace RobotController
                     robotList[robot].currentCartesianSpeed = 0.0;
                     robotList[robot].currentMotionStartTime = 0.0;
                     robotList[robot].motionPlan = null;
+                    robotList[robot].LastTimeElapsed = 0.0;
                     //robotList[robot].seperationCalculator = null;
                     //robotList[robot].speedCalculator = null;
                 }
             }
         }
 
-        double lastTime = 0.0;
+        //double lastTime = 0.0;
         public void SimulationPropertyChanged(object sender, EventArgs e)
         {
-            double deltaTime = app.Simulation.Elapsed - lastTime;
-            lastTime = app.Simulation.Elapsed;
+            //double deltaTime = app.Simulation.Elapsed - lastTime;
+            //lastTime = app.Simulation.Elapsed;
             
             foreach (ILaserScanner laserScanner in laser_scanners)
             {
                 laserScanner.Scan();
             }
 
+            double appElapsed = app.Simulation.Elapsed;
             foreach (IRobot robot in robotList.Keys)
             {
                 UpdateVisualizationDistance(robot);
+                double deltaTime = appElapsed - robotList[robot].LastTimeElapsed;
 
                 MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
                 RobotParameters param = robotList[robot];
@@ -300,6 +302,7 @@ namespace RobotController
                     }
 
                 }
+                robotList[robot].LastTimeElapsed = appElapsed;
             }
         }
         /// <summary>

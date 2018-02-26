@@ -30,5 +30,7 @@ namespace RobotController
         // Properties below this line are relevant for the setup of the motion plan and the kinematic chain of it only.
         public static String KinStart = "base_link";
         public static String KinEnd = "tool0";
+
+        public double LastTimeElapsed = 0.0;
     }
 }

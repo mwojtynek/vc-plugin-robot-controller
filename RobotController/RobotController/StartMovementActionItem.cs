@@ -22,6 +22,7 @@ namespace RobotController
         IRobot robot = null;
         MotionPlanningManager mpm = null;
         MotionPlan motionPlan = null;
+        //private readonly object robotControllerLock = new object();
 
         public StartMovementActionItem() : base("StartMovement")
         {
@@ -37,9 +38,9 @@ namespace RobotController
                 ms.AppendMessage("Too few arguments were passed to StartMovementActionItem. [robotName, startFrameName, goalFrameName, maxAllowedCartesianSpeed, payload, stapleComponentName]", MessageLevel.Warning);
                 return;
             }
-            new Thread(() =>
-            {
-                Thread.CurrentThread.IsBackground = true;
+            //new Thread(() =>
+            //{
+               // Thread.CurrentThread.IsBackground = true;
 
                 //TODO: Fix the hard index access or at least print out a message if input was wrong
                 String robotName = (String)args.GetByIndex(0).Value;
@@ -83,7 +84,6 @@ namespace RobotController
                     return;
                 }
 
-
                 RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
                 motionPlanCollection.Clear();
                 if (!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
@@ -123,15 +123,17 @@ namespace RobotController
                         MotionInterpolator inp = motionPlan.getMotionInterpolator();
                         inp.setMaxJointAcceleration(7.5);
                         inp.setMaxJointVelocity(75.0);
-
                         RobotController.getInstance().AddMotionPlan(robot, payload, motionPlan);
                     }
                     else
                     {
                         ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
-                }
-            }).Start();
+                } else
+            {
+                motionPlan.showSetupInInspector();
+            }
+            //}).Start();
         }
 
     }

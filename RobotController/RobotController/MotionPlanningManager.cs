@@ -151,15 +151,7 @@ namespace RobotController
             VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
                                                                 goalPosition.GetP().Y / 1000,
                                                                 goalPosition.GetP().Z / 1000,
-                                                                goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles, 0.01, "Distance");
-            if (allZeroes(goalJointAngles))
-            {
-                IoC.Get<IMessageService>().AppendMessage("Failed to find IK using \"Distance\" method, trying \"Speed\"...", MessageLevel.Warning);
-                goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
-                                                    goalPosition.GetP().Y / 1000,
-                                                    goalPosition.GetP().Z / 1000,
-                                                    goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles, 0.1, "Speed");
-            }
+                                                                goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles, 0.5, "Distance");
 
             motionPlan.setStartPosition(startJointAngles);
             motionPlan.setGoalPosition(goalJointAngles);
@@ -200,7 +192,7 @@ namespace RobotController
             }
             else
             {
-                motionPlan.showSetupInInspector();
+                //motionPlan.showSetupInInspector();
                 IoC.Get<IMessageService>().AppendMessage("Failed to find motion from " + startOut + " to " + goalOut + ": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
             }
             
