@@ -23,23 +23,18 @@ namespace RobotController
         /// <param name="pathToObstacleFile"></param>The path to an obstacle model file (e.g. stl format).
         public MotionPlan InitializeMotionPlanner(IRobot robot, String pathToRobotUrdfDescriptionFile, String kinChainStart, String kinChainEnd, String pathToObstacleFile)
         {
-            if (robot.Component.GetProperty("motionStartTime") == null) { 
-                robot.Component.CreateProperty(typeof(double), PropertyConstraintType.NotSpecified, "motionStartTime");
+            MotionPlan motionPlan = new MotionPlan(pathToRobotUrdfDescriptionFile, kinChainStart, kinChainEnd);
+            if (!motionPlan.isValid()) {
+                Console.WriteLine("Failed to initialize motionPlan, unable to load robot urdf file \"" + pathToRobotUrdfDescriptionFile + "\" from " + kinChainStart + " to " + kinChainEnd + "!");
+                return null;
             }
-            if (robot.Component.GetProperty("motionEndTime") == null)
-            {
-                robot.Component.CreateProperty(typeof(double), PropertyConstraintType.NotSpecified, "motionEndTime");
-            }
-
-            MotionPlan motionPlan = new MotionPlan();
-            motionPlan.loadMotionPlanRobotDescription(pathToRobotUrdfDescriptionFile, kinChainStart, kinChainEnd);
             MotionPlanRobotDescription description = motionPlan.getMotionPlanRobotDescription();
             
             Vector3 wpr = robot.Component.TransformationInWorld.GetWPR();
 
             description.setRobotPosition(robot.Component.TransformationInWorld.GetP().X / 1000,
                                         robot.Component.TransformationInWorld.GetP().Y / 1000,
-                                        (robot.Component.TransformationInWorld.GetP().Z + 2) / 1000);
+                                        robot.Component.TransformationInWorld.GetP().Z / 1000);
             description.setRobotRotation(wpr.X, wpr.Y, wpr.Z);
 
             motionPlan.addObstacle(pathToObstacleFile);
@@ -147,6 +142,7 @@ namespace RobotController
             Vector3 goalRotation = goalPosition.GetWPR();
             Vector3 robotPosition = robot.Component.TransformationInWorld.GetP();
             VectorOfDouble startJointAngles = currentPositionJointAngles;
+            IoC.Get<IMessageService>().AppendMessage("Goal Frame \"" + goalFrame + "\": [" + String.Format("{0:0.000}", (goalPosition.GetP().X / 1000)) + ", " + String.Format("{0:0.000}", (goalPosition.GetP().Y / 1000)) + ", " + String.Format("{0:0.000}", (goalPosition.GetP().Z / 1000)) + "] ["+ String.Format("{0:0.000}", goalRotation.X)+" "+ String.Format("{0:0.000}", goalRotation.Y)+" "+ String.Format("{0:0.000}", goalRotation.Z) + "]", MessageLevel.Warning);
 
             VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
                                                                 goalPosition.GetP().Y / 1000,

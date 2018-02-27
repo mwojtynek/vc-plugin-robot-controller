@@ -22,7 +22,7 @@ namespace RobotController
         IRobot robot = null;
         MotionPlanningManager mpm = null;
         MotionPlan motionPlan = null;
-        //private readonly object robotControllerLock = new object();
+
 
         public StartMovementActionItem() : base("StartMovement")
         {
@@ -30,6 +30,7 @@ namespace RobotController
             ms.AppendMessage("Constructor of StartMovement Action Item called", MessageLevel.Warning);
         }
 
+        ReaderWriterLockSlim motionPlanCollectionLock = new ReaderWriterLockSlim();
         Dictionary<ISimComponent, MotionPlan> motionPlanCollection = new Dictionary<ISimComponent, MotionPlan>();
         public override void Execute(PropertyCollection args)
         {
@@ -40,7 +41,7 @@ namespace RobotController
             }
             //new Thread(() =>
             //{
-               // Thread.CurrentThread.IsBackground = true;
+              //  Thread.CurrentThread.IsBackground = true;
 
                 //TODO: Fix the hard index access or at least print out a message if input was wrong
                 String robotName = (String)args.GetByIndex(0).Value;
@@ -85,16 +86,22 @@ namespace RobotController
                 }
 
                 RobotController.getInstance().setMaxAllowedCartesianSpeed(robot, maxAllowedCartesianSpeed);
-                motionPlanCollection.Clear();
-                if (!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
+                try
                 {
-                    mpm = new MotionPlanningManager();
-                    motionPlan = mpm.InitializeMotionPlanner(robot,
-                                                            parameter.urdfFile.Path,
-                                                            RobotParameters.KinStart, RobotParameters.KinEnd,
-                                                            parameter.obsFile.Path);
-                    motionPlanCollection.Add(robotParent, motionPlan);
-                    ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
+                    motionPlanCollectionLock.EnterWriteLock();
+                    motionPlanCollection.Clear();
+                    if (!motionPlanCollection.TryGetValue(robotParent, out motionPlan))
+                    {
+                        mpm = new MotionPlanningManager();
+                        motionPlan = mpm.InitializeMotionPlanner(robot,
+                                                                parameter.urdfFile.Path,
+                                                                RobotParameters.KinStart, RobotParameters.KinEnd,
+                                                                parameter.obsFile.Path);
+                        motionPlanCollection.Add(robotParent, motionPlan);
+                        ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
+                    }
+                } finally {
+                    motionPlanCollectionLock.ExitWriteLock();
                 }
 
                 Vector3 staplePosition = stapleComponent.TransformationInWorld.GetP();

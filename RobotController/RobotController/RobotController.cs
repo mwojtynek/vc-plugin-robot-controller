@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
 using System.Linq;
+using System.Threading;
 using VisualComponents.Create3D;
 using VisualComponents.UX.Shared;
 
@@ -26,8 +27,9 @@ namespace RobotController
         private MotionInterpolation MotionInterpolationInstance = null;
         private ISimComponent human = null;
         private IProperty humanAngleIndicatorZRotation = null;
-        
-        
+
+        ReaderWriterLockSlim robotListLock = new ReaderWriterLockSlim();
+
         //Create Constructor for class
         [ImportingConstructor]
         public RobotController([Import(typeof(IApplication))] IApplication app)
@@ -57,15 +59,23 @@ namespace RobotController
         /// <returns></returns>Returns true if registration was successful and false otherwise.
         public bool RegisterRobot(IRobot robot)
         {
-            if (robotList.ContainsKey(robot))
+            try
             {
-                robotList.Remove(robot);
+                robotListLock.EnterWriteLock();
+                if (robotList.ContainsKey(robot))
+                {
+                    robotList.Remove(robot);
+                }
+                robotList.Add(robot, new RobotParameters());
+                robotList[robot].speedCalculator = new SpeedCalculator(30, 0);
+                robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
+                robotList[robot].maxCartesianSpeed = 480.0;
+                robotList[robot].allowedCartesianSpeed = 480.0;
             }
-            robotList.Add(robot, new RobotParameters());
-            robotList[robot].speedCalculator = new SpeedCalculator(30, 0);
-            robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
-            robotList[robot].maxCartesianSpeed = 480.0;
-            robotList[robot].allowedCartesianSpeed = 480.0;
+            finally
+            {
+                robotListLock.ExitWriteLock();
+            }
 
             VisualizeSeperationDistance(robot, 500.0);
 
@@ -80,7 +90,7 @@ namespace RobotController
         /// <param name="initialRadius"></param>The initial radius for the cylinder.
         private void VisualizeSeperationDistance(IRobot robot, double initialRadius)
         {
-            if (app.World.FindComponent("SeparationVisualization_" + robot.Name) == null)
+            if (robot != null && robot.IsValid && app.World.FindComponent("SeparationVisualization_" + robot.Name) == null)
             {
                 ISimComponent component = app.World.CreateComponent("SeparationVisualization_" + robot.Name);
                 ISimNode node = robot.Component.FindNode("mountplate");
@@ -107,7 +117,7 @@ namespace RobotController
         /// <param name="robot"></param>The robot for which the update should be made.
         private void UpdateVisualizationDistance(IRobot robot)
         {
-            if (app.World.FindComponent("SeparationVisualization_" + robot.Name) != null)
+            if (robot != null && robot.IsValid && app.World.FindComponent("SeparationVisualization_" + robot.Name) != null)
             {
                 ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + robot.Name);
                 ISimNode node = robot.Component.FindNode("mountplate");
@@ -137,7 +147,7 @@ namespace RobotController
         {
             RobotParameters param = robotList[robot];
             param.allowedCartesianSpeed = maxspeed;
-            if(param.motionPlan != null)
+            if (param.motionPlan != null)
             {
                 param.motionPlan.getMotionInterpolator().setCartesianSpeedLimit(maxspeed);
             }
@@ -155,16 +165,24 @@ namespace RobotController
         {
             try
             {
-                robotList[robot].motionPlan = motionPlan;
-                robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
-                robotList[robot].payloadOnFinishMovement = payloadOnFinishMovement;
-                
-                ms.AppendMessage("New motion plan ("+ motionPlan.getLastResult().Count + ") set for robot "+robot.Name+" starting at "+app.Simulation.Elapsed, MessageLevel.Warning);
+                robotListLock.EnterWriteLock();
+                try
+                {
+                    robotList[robot].motionPlan = motionPlan;
+                    robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
+                    robotList[robot].payloadOnFinishMovement = payloadOnFinishMovement;
+
+                    ms.AppendMessage("New motion plan (" + motionPlan.getLastResult().Count + ") set for robot " + robot.Name + " starting at " + app.Simulation.Elapsed, MessageLevel.Warning);
+                }
+                catch (KeyNotFoundException e)
+                {
+                    ms.AppendMessage("Motion plan could not be added, maybe robot was not registred?", MessageLevel.Warning);
+                    ms.AppendMessage(e.ToString(), MessageLevel.Error);
+                }
             }
-            catch (KeyNotFoundException e)
+            finally
             {
-                ms.AppendMessage("Motion plan could not be added, maybe robot was not registred?", MessageLevel.Warning);
-                ms.AppendMessage(e.ToString(), MessageLevel.Error);
+                robotListLock.ExitWriteLock();
             }
         }
 
@@ -227,16 +245,27 @@ namespace RobotController
             if (timer != null)
             {
                 timer.StartStopTimer(false);
-                foreach (IRobot robot in robotList.Keys) {
-                    robotList[robot].currentCartesianSpeed = 0.0;
-                    robotList[robot].currentMotionStartTime = 0.0;
-                    robotList[robot].motionPlan = null;
-                    robotList[robot].LastTimeElapsed = 0.0;
-                    //robotList[robot].seperationCalculator = null;
-                    //robotList[robot].speedCalculator = null;
+                try
+                {
+                    robotListLock.EnterWriteLock();
+
+                    foreach (IRobot robot in robotList.Keys)
+                    {
+                        robotList[robot].currentCartesianSpeed = 0.0;
+                        robotList[robot].currentMotionStartTime = 0.0;
+                        robotList[robot].motionPlan = null;
+                        robotList[robot].LastTimeElapsed = 0.0;
+                        //robotList[robot].seperationCalculator = null;
+                        //robotList[robot].speedCalculator = null;
+                    }
+                }
+                finally
+                {
+                    robotListLock.ExitWriteLock();
                 }
             }
         }
+
 
         //double lastTime = 0.0;
         public void SimulationPropertyChanged(object sender, EventArgs e)
@@ -250,132 +279,80 @@ namespace RobotController
             }
 
             double appElapsed = app.Simulation.Elapsed;
-            foreach (IRobot robot in robotList.Keys)
+            try
             {
-                UpdateVisualizationDistance(robot);
-                double deltaTime = appElapsed - robotList[robot].LastTimeElapsed;
-
-                MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
-                RobotParameters param = robotList[robot];
-                if (param.motionPlan == null)
-                    continue;
-                MotionInterpolator mp = param.motionPlan.getMotionInterpolator();
-                if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone())
+                robotListLock.EnterReadLock();
+                foreach (IRobot robot in robotList.Keys)
                 {
-                    VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(deltaTime);
+                    if (!robot.IsValid) continue;
+                    UpdateVisualizationDistance(robot);
+                    double deltaTime = appElapsed - robotList[robot].LastTimeElapsed;
 
-                    robot.RobotController.InvalidateKinChains();
-
-                    if (robot.RobotController.Joints.Count == 7)
+                    MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+                    RobotParameters param = robotList[robot];
+                    if (param.motionPlan == null)
+                        continue;
+                    MotionInterpolator mp = param.motionPlan.getMotionInterpolator();
+                    if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone())
                     {
-                        robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
-                    }
-                    else
-                    {
-                        double[] firstJointAngleCollectionSorted = new double[result.Count];
-                        firstJointAngleCollectionSorted[0] = result.ElementAt(0); //A1
-                        firstJointAngleCollectionSorted[1] = result.ElementAt(1); //A2
-                        firstJointAngleCollectionSorted[2] = result.ElementAt(2); //A3
-                        firstJointAngleCollectionSorted[3] = result.ElementAt(3); //A4
-                        firstJointAngleCollectionSorted[4] = result.ElementAt(4); //A5
-                        firstJointAngleCollectionSorted[5] = result.ElementAt(5); //A6
-                        robot.RobotController.SetJointValues(firstJointAngleCollectionSorted);
-                    }
+                        VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(deltaTime);
 
-                }
-                else
-                {
-                    // set movement done!
-                    IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
-                    if (movementFinished is IStringSignal)
-                    {
-                        IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
+                        robot.RobotController.InvalidateKinChains();
 
-                        if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
+                        if (robot.RobotController.Joints.Count == 7)
                         {
-                            movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
+                            robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
                         }
+                        else
+                        {
+                            double[] firstJointAngleCollectionSorted = new double[result.Count];
+                            firstJointAngleCollectionSorted[0] = result.ElementAt(0); //A1
+                            firstJointAngleCollectionSorted[1] = result.ElementAt(1); //A2
+                            firstJointAngleCollectionSorted[2] = result.ElementAt(2); //A3
+                            firstJointAngleCollectionSorted[3] = result.ElementAt(3); //A4
+                            firstJointAngleCollectionSorted[4] = result.ElementAt(4); //A5
+                            firstJointAngleCollectionSorted[5] = result.ElementAt(5); //A6
+                            robot.RobotController.SetJointValues(firstJointAngleCollectionSorted);
+                        }
+
                     }
                     else
                     {
-                        ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                        // set movement done!
+                        IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
+                        if (movementFinished is IStringSignal)
+                        {
+                            IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
+
+                            if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
+                            {
+                                movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
+                            }
+                        }
+                        else
+                        {
+                            ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                        }
+
                     }
-
+                    robotList[robot].LastTimeElapsed = appElapsed;
                 }
-                robotList[robot].LastTimeElapsed = appElapsed;
             }
+            finally
+            {
+                robotListLock.ExitReadLock();
+            }
+
         }
-        /// <summary>
-        /// The general update loop which has to trigger everything that should be computed for each iteration.
-        /// </summary>
-        /// <param name="sender"></param>The source of the tick event.
-        /// <param name="e"></param>The tick event itself.
-        /* public void RegularTick(object sender, EventArgs e)
-         {
-             foreach (ILaserScanner laserScanner in laser_scanners)
-             {
-                 laserScanner.Scan();
-             }
-
-             foreach (IRobot robot in robotList.Keys)
-             {
-                 UpdateVisualizationDistance(robot);
-                 //MotionInterpolationInstance.InterpolatePlannedMotion(robot, ref robotList, app.Simulation.Elapsed);
-
-                 MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
-
-                 //MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, app.World.FindComponent("WorksHuman").TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
-
-                 RobotParameters param = robotList[robot];
-                 if (param.motionPlan == null)
-                     continue;
-                 MotionInterpolator mp = param.motionPlan.getMotionInterpolator();
-                 if (param.motionPlan != null && !param.motionPlan.getMotionInterpolator().motionDone()){
-                     VectorOfDouble result = param.motionPlan.getMotionInterpolator().interpolate_tick(TICK_INTERVAL);
-
-                     robot.RobotController.InvalidateKinChains();
-
-                     if (robot.RobotController.Joints.Count == 7)
-                     {
-                         robot.RobotController.SetJointValues(MotionInterpolation.KukaSorted(result));
-                     } else
-                     {
-                         double[] firstJointAngleCollectionSorted = new double[result.Count];
-                         firstJointAngleCollectionSorted[0] = result.ElementAt(0); //A1
-                         firstJointAngleCollectionSorted[1] = result.ElementAt(1); //A2
-                         firstJointAngleCollectionSorted[2] = result.ElementAt(2); //A3
-                         firstJointAngleCollectionSorted[3] = result.ElementAt(3); //A4
-                         firstJointAngleCollectionSorted[4] = result.ElementAt(4); //A5
-                         firstJointAngleCollectionSorted[5] = result.ElementAt(5); //A6
-                         robot.RobotController.SetJointValues(firstJointAngleCollectionSorted);
-                     }
-
-                 } else {
-                     // set movement done!
-                     IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
-                     if(movementFinished is IStringSignal)
-                     {
-                         IStringSignal movementFinishedStringSignal = (IStringSignal)movementFinished;
-
-                         if (!String.Equals(movementFinishedStringSignal.Value, robotList[robot].payloadOnFinishMovement))
-                         {
-                             movementFinishedStringSignal.Value = robotList[robot].payloadOnFinishMovement;
-                         }
-                     } else {
-                         ms.AppendMessage("\"MovementFinished\" behavior was null or not of type IStringSignal. Abort!", MessageLevel.Warning);
-                     }
-
-                 }
-             }
-         }*/
 
         void OutputOnHumanDetected(object sender, LaserScannerHumanDetectedEventArgs args)
         {
             //ms.AppendMessage("Detected Human with moveSpeed: " +args.MoveSpeed, MessageLevel.Warning);
             try
             {
+                robotListLock.EnterWriteLock();
                 IRobot robot = args.Robot;
-                if (robotList.ContainsKey(robot))
+                if (robotList.ContainsKey(robot) && robot.IsValid)
                 {
                     robotList[robot].closestHumanWorldPosition = args.HumanPosition;
                     robotList[robot].angleToHuman = args.Angle;
@@ -429,9 +406,11 @@ namespace RobotController
             {
                 ms.AppendMessage("Key not found", MessageLevel.Error);
                 ms.AppendMessage(e.ToString(), MessageLevel.Error);
-
+            } finally
+            {
+                robotListLock.ExitWriteLock();
             }
-            
+
         }
         
         //TODO: Change the registration of laser scanners
@@ -474,15 +453,25 @@ namespace RobotController
         {
             if(e.HumansLeftCount == 0)
             {
-                if (robotList.ContainsKey(e.Robot))
+                try
                 {
-                    // we can reset the cartesian speed of the robot
-                    ms.AppendMessage(e.Robot.Name + " restored cartesian speed to "+ robotList[e.Robot].maxCartesianSpeed + "!", MessageLevel.Warning);
-                    robotList[e.Robot].allowedCartesianSpeed = robotList[e.Robot].maxCartesianSpeed;
-                } else
-                {
-                    ms.AppendMessage("OutputOnHumanLost failed to find referenced robot!", MessageLevel.Warning);
+                    robotListLock.EnterWriteLock();
+                    if (robotList.ContainsKey(e.Robot))
+                    {
+                        // we can reset the cartesian speed of the robot
+                        ms.AppendMessage(e.Robot.Name + " restored cartesian speed to " + robotList[e.Robot].maxCartesianSpeed + "!", MessageLevel.Warning);
+                        robotList[e.Robot].allowedCartesianSpeed = robotList[e.Robot].maxCartesianSpeed;
+                    }
+                    else
+                    {
+                        ms.AppendMessage("OutputOnHumanLost failed to find referenced robot!", MessageLevel.Warning);
+                    }
                 }
+                finally
+                {
+                    robotListLock.ExitWriteLock();
+                }
+
             }
         }
     }
