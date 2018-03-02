@@ -142,7 +142,7 @@ namespace RobotController
             Vector3 goalRotation = goalPosition.GetWPR();
             Vector3 robotPosition = robot.Component.TransformationInWorld.GetP();
             VectorOfDouble startJointAngles = currentPositionJointAngles;
-            IoC.Get<IMessageService>().AppendMessage("Goal Frame \"" + goalFrame + "\": [" + String.Format("{0:0.000}", (goalPosition.GetP().X / 1000)) + ", " + String.Format("{0:0.000}", (goalPosition.GetP().Y / 1000)) + ", " + String.Format("{0:0.000}", (goalPosition.GetP().Z / 1000)) + "] ["+ String.Format("{0:0.000}", goalRotation.X)+" "+ String.Format("{0:0.000}", goalRotation.Y)+" "+ String.Format("{0:0.000}", goalRotation.Z) + "]", MessageLevel.Warning);
+            //IoC.Get<IMessageService>().AppendMessage("Goal Frame \"" + goalFrame + "\": [" + String.Format("{0:0.000}", (goalPosition.GetP().X / 1000)) + ", " + String.Format("{0:0.000}", (goalPosition.GetP().Y / 1000)) + ", " + String.Format("{0:0.000}", (goalPosition.GetP().Z / 1000)) + "] ["+ String.Format("{0:0.000}", goalRotation.X)+" "+ String.Format("{0:0.000}", goalRotation.Y)+" "+ String.Format("{0:0.000}", goalRotation.Z) + "]", MessageLevel.Warning);
 
             VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
                                                                 goalPosition.GetP().Y / 1000,
@@ -166,9 +166,10 @@ namespace RobotController
             motionPlan.setStateValidityCheckingResolution(0.01);
             //motionPlan.setReportFirstExactSolution(true);
             motionPlan.setPlannerByString("RRTConnect");
+            
             if (motionPlan.plan() > 0)
             {
-                IoC.Get<IMessageService>().AppendMessage("Found motion from " + startFrame + "@" + startOut + " to " + goalFrame + "@" + goalOut + ": ", MessageLevel.Warning);
+                //IoC.Get<IMessageService>().AppendMessage("Found motion from " + startFrame + "@" + startOut + " to " + goalFrame + "@" + goalOut + ": ", MessageLevel.Warning);
                 VectorOfDoubleVector plan = motionPlan.getLastResult();
                 //motionPlan.showSetupInInspector();
                 foreach (VectorOfDouble jointConfiguration in plan)
@@ -180,10 +181,10 @@ namespace RobotController
                         sep = ",";
                     }
 
-                    IoC.Get<IMessageService>().AppendMessage(motionBuf + "]", MessageLevel.Warning);
+                    //IoC.Get<IMessageService>().AppendMessage(motionBuf + "]", MessageLevel.Warning);
                 }
 
-                IoC.Get<IMessageService>().AppendMessage("Found motion END", MessageLevel.Warning);
+                //IoC.Get<IMessageService>().AppendMessage("Found motion END", MessageLevel.Warning);
                 return plan;
             }
             else
@@ -191,6 +192,7 @@ namespace RobotController
                 //motionPlan.showSetupInInspector();
                 IoC.Get<IMessageService>().AppendMessage("Failed to find motion from " + startOut + " to " + goalOut + ": " + motionPlan.getLastPlanningError(), MessageLevel.Warning);
             }
+            
             
             return null;
         }

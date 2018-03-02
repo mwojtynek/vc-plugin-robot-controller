@@ -172,7 +172,7 @@ namespace RobotController
                     robotList[robot].currentMotionStartTime = app.Simulation.Elapsed;
                     robotList[robot].payloadOnFinishMovement = payloadOnFinishMovement;
 
-                    ms.AppendMessage("New motion plan (" + motionPlan.getLastResult().Count + ") set for robot " + robot.Name + " starting at " + app.Simulation.Elapsed, MessageLevel.Warning);
+                    //ms.AppendMessage("New motion plan (" + motionPlan.getLastResult().Count + ") set for robot " + robot.Name + " starting at " + app.Simulation.Elapsed, MessageLevel.Warning);
                 }
                 catch (KeyNotFoundException e)
                 {
@@ -369,12 +369,12 @@ namespace RobotController
                     } else
                     {*/
                         int result = Convert.ToInt32(robotList[robot].speedCalculator.GetAllowedVelocity(BodyPart.Chest, args.MoveSpeed, 1.0));
-                        ms.AppendMessage("Setting robot cartesian speed limit to " + result, MessageLevel.Warning);
+                        //ms.AppendMessage("Setting robot cartesian speed limit to " + result, MessageLevel.Warning);
                         setMaxAllowedCartesianSpeed(robot, result);
                     } else
                     {
                         setMaxAllowedCartesianSpeed(robot, 400);
-                        ms.AppendMessage("Setting robot cartesian speed limit to 400", MessageLevel.Warning);
+                        //ms.AppendMessage("Setting robot cartesian speed limit to 400", MessageLevel.Warning);
                     }
                     if (robotList[robot].motionPlan != null)
                     {
@@ -459,7 +459,7 @@ namespace RobotController
                     if (robotList.ContainsKey(e.Robot))
                     {
                         // we can reset the cartesian speed of the robot
-                        ms.AppendMessage(e.Robot.Name + " restored cartesian speed to " + robotList[e.Robot].maxCartesianSpeed + "!", MessageLevel.Warning);
+                        //ms.AppendMessage(e.Robot.Name + " restored cartesian speed to " + robotList[e.Robot].maxCartesianSpeed + "!", MessageLevel.Warning);
                         robotList[e.Robot].allowedCartesianSpeed = robotList[e.Robot].maxCartesianSpeed;
                     }
                     else

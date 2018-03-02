@@ -98,7 +98,7 @@ namespace RobotController
                                                                 RobotParameters.KinStart, RobotParameters.KinEnd,
                                                                 parameter.obsFile.Path);
                         motionPlanCollection.Add(robotParent, motionPlan);
-                        ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
+                        //ms.AppendMessage("Created new motionPlan for " + robotName, MessageLevel.Warning);
                     }
                 } finally {
                     motionPlanCollectionLock.ExitWriteLock();
