@@ -15,7 +15,7 @@ namespace RobotController
     [Export(typeof(IPlugin))]
     public class RobotController : IPlugin
     {
-        private const double TICK_INTERVAL = 1.0;
+        private const double TICK_INTERVAL = 0.03;
         private IApplication app = null;
         private IMessageService ms = null;
         private static RobotController instance = null;
@@ -39,7 +39,6 @@ namespace RobotController
 
             MotionPlanningManagerInstance = new MotionPlanningManager();
             MotionInterpolationInstance = new MotionInterpolation();
-
         }
 
         public static RobotController getInstance()
@@ -76,9 +75,7 @@ namespace RobotController
             {
                 robotListLock.ExitWriteLock();
             }
-
-            VisualizeSeperationDistance(robot, 500.0);
-
+            
             return true;
         }
 
@@ -93,6 +90,7 @@ namespace RobotController
             if (robot != null && robot.IsValid && app.World.FindComponent("SeparationVisualization_" + robot.Name) == null)
             {
                 ISimComponent component = app.World.CreateComponent("SeparationVisualization_" + robot.Name);
+                component.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
                 ISimNode node = robot.Component.FindNode("mountplate");
 
                 Matrix matrix = component.TransformationInReference;
@@ -131,10 +129,12 @@ namespace RobotController
                 if(robotList[robot].currentSeperationDistance <= 100)
                 {
                     cylinder.GetProperty("Radius").Value = "100";
+                    comp.GetProperty("SeparationDistance").Value = "100";
                 } else
                 {
                     cylinder.GetProperty("Radius").Value =
-                        robotList[robot].currentSeperationDistance.ToString();                    
+                        robotList[robot].currentSeperationDistance.ToString();
+                    comp.GetProperty("SeparationDistance").Value = robotList[robot].currentSeperationDistance;
                 }
                 cylinder.Rebuild();
             } else
@@ -199,6 +199,7 @@ namespace RobotController
 
             this.app.Simulation.SimulationStarted += SimulationStarted;
             this.app.Simulation.SimulationStopped += SimulationStopped;
+            this.app.Simulation.SimulationReset += SimulationReset;
             //IoC.Get<ISimulationService>().PropertyChanged += JointConfigurationChanged;
             ms = IoC.Get<IMessageService>();
             statisticsManager = this.app.StatisticsManager;
@@ -209,7 +210,7 @@ namespace RobotController
 
             app.World.ComponentAdded += World_ComponentAdded;
             app.World.ComponentRemoving += World_ComponentRemoving;
-            IoC.Get<ISimulationService>().PropertyChanged += SimulationPropertyChanged;
+            //IoC.Get<ISimulationService>().PropertyChanged += SimulationPropertyChanged;
         }
 
         /// <summary>
@@ -220,8 +221,8 @@ namespace RobotController
         public void SimulationStarted(object sender, EventArgs e)
         {
             ms.AppendMessage("Simulation Started", MessageLevel.Warning);
-            //timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
-            //timer.StartStopTimer(true);
+            timer = statisticsManager.CreateTimer(RegularTick, TICK_INTERVAL);
+            timer.StartStopTimer(true);
 
             if (app.World.FindComponent("WorksHuman") != null)
             {
@@ -245,6 +246,15 @@ namespace RobotController
             if (timer != null)
             {
                 timer.StartStopTimer(false);
+            }
+        }
+
+        public void SimulationReset(object sender, EventArgs e)
+        {
+            ms.AppendMessage("Simulation Reset", MessageLevel.Warning);
+            if (timer != null)
+            {
+                timer.StartStopTimer(false);
                 try
                 {
                     robotListLock.EnterWriteLock();
@@ -255,8 +265,6 @@ namespace RobotController
                         robotList[robot].currentMotionStartTime = 0.0;
                         robotList[robot].motionPlan = null;
                         robotList[robot].LastTimeElapsed = 0.0;
-                        //robotList[robot].seperationCalculator = null;
-                        //robotList[robot].speedCalculator = null;
                     }
                 }
                 finally
@@ -268,7 +276,7 @@ namespace RobotController
 
 
         //double lastTime = 0.0;
-        public void SimulationPropertyChanged(object sender, EventArgs e)
+        public void RegularTick(object sender, EventArgs e)
         {
             //double deltaTime = app.Simulation.Elapsed - lastTime;
             //lastTime = app.Simulation.Elapsed;
@@ -285,10 +293,12 @@ namespace RobotController
                 foreach (IRobot robot in robotList.Keys)
                 {
                     if (!robot.IsValid) continue;
-                    UpdateVisualizationDistance(robot);
+                    //UpdateVisualizationDistance(robot);
                     double deltaTime = appElapsed - robotList[robot].LastTimeElapsed;
-
-                    MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+                    if (human != null)
+                    {
+                        MotionInterpolationInstance.CalculateCurrentRobotSpeed(robot, ref robotList, TICK_INTERVAL, human.TransformationInWorld.GetP()); //robotList[robot].closestHumanWorldPosition
+                    }
                     RobotParameters param = robotList[robot];
                     if (param.motionPlan == null)
                         continue;
@@ -318,6 +328,10 @@ namespace RobotController
                     }
                     else
                     {
+                        
+                        //ms.AppendMessage("!!MovementFinished!!", MessageLevel.Warning);
+                        // After this command, the video recording breaks...
+                        
                         // set movement done!
                         IBehavior movementFinished = (IBehavior)robot.Component.FindBehavior("MovementFinished");
                         if (movementFinished is IStringSignal)
@@ -461,6 +475,7 @@ namespace RobotController
                         // we can reset the cartesian speed of the robot
                         //ms.AppendMessage(e.Robot.Name + " restored cartesian speed to " + robotList[e.Robot].maxCartesianSpeed + "!", MessageLevel.Warning);
                         robotList[e.Robot].allowedCartesianSpeed = robotList[e.Robot].maxCartesianSpeed;
+                        robotList[e.Robot].currentSeperationDistance = 0;
                     }
                     else
                     {
