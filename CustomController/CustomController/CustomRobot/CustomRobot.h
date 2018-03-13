@@ -1,13 +1,22 @@
 #pragma once
 
 //KDL 
+
 #include <chain.hpp>
 #include <chainfksolver.hpp>
 #include <chainfksolverpos_recursive.hpp>
 #include <frames_io.hpp>
 
-#include <MotionHelper.h>
-#include <OptimizationFunctions.h>
+//#include <MotionHelper.h>
+//#include <OptimizationFunctions.h>
+
+typedef struct {
+	double j;
+	double a;
+	double v;
+	double s;
+} Kin;
+
 
 public class CustomRobot {
 private:

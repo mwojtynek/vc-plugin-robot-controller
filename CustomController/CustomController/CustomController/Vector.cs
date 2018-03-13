@@ -152,8 +152,25 @@ namespace CustomController
             }
             set
             {
-                vals = (this * (value / Norm)).vals;
+                double _norm = Norm;
+                if ( _norm != 0) {
+                    vals = (this * (value / _norm)).vals;
+                }
+                
             }
+        }
+
+        public override bool Equals(object obj)
+        {
+            Vector b = obj as Vector;
+            if (b == null) return false;
+            if (b.Length != this.Length) return false;
+
+            for(int i = 0; i< this.Length; i++)
+            {
+                if (vals[i] != b[i]) return false;
+            }
+            return true;
         }
     }
 }

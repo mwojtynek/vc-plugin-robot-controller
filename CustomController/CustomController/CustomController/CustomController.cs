@@ -55,20 +55,16 @@ namespace CustomController
                 kinematics = manip.robot.RobotController.CreateTarget();
                 kinematics.UseJointValues = false;
                 
-                setFromStartFrame();
-                setFromGoalFrame();
-                manip.robot.Component.FindFeature("startFrame").TransformationChanged += (e, a) => { setFromStartFrame(); };
-                manip.robot.Component.FindFeature("goalFrame").TransformationChanged += (e, a) => { setFromGoalFrame(); };
                 changeData((manip.component.FindBehavior(VisualRobotManipulatorCollector.BEHAVIOR_NAME) as INote).Note);
 
             } catch(Exception e)
             {
                 Printer.print(e.StackTrace);
             }
-
+            /*
             if (useSSM) {
                 initSSM();
-            }
+            }*/
 
             IoC.Get<IDebugCall>().DebugCall[0] += printCart;
             IoC.Get<IDebugCall>().DebugCall[1] += () => {
@@ -105,6 +101,41 @@ namespace CustomController
             b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Ny, m.Oy, m.Ay, m.Py);
             b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nz, m.Oz, m.Az, m.Pz);
             Printer.print(b.ToString());*/
+        }
+
+        public String pythonState;
+        public List<Vector> resultAngles = new List<Vector>();
+        public int pathIndex;
+        public bool moving = false;
+
+        public void moveAlongJointAngleList(string pythonState, VectorOfDoubleVector vectorOfDoubleVector)
+        {
+            IoC.Get<IMessageService>().AppendMessage("Starting Motion...", MessageLevel.Warning);
+            this.pythonState = pythonState;
+            resultAngles.Clear();
+            
+            foreach(VectorOfDouble jointAngles in vectorOfDoubleVector){
+                resultAngles.Add(new Vector(jointAngles.ToArray()));
+            }
+
+            pathIndex = 0;
+
+            startJoints = correctJoints(manip.getConfiguration());
+            goalJoints = resultAngles[pathIndex];
+            while (goalJoints.Equals(startJoints)) {
+                pathIndex++;
+                if (pathIndex == resultAngles.Count) {
+                    IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
+                    movementFinished.Value = pythonState; // indicate motion done
+                    return;
+                }
+                goalJoints = resultAngles[pathIndex];
+            }
+            calcDelta();
+
+            finished = false;
+            moving = true;
+
         }
 
         private void recursivePrint(ISimNode cur, int level) {
@@ -154,25 +185,7 @@ namespace CustomController
             deltaJoints.Norm = 1;
             reset = true;
         }
-
-        public void setFromStartFrame() {
-            kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("startFrame")));
-            startJoints = new Vector(kinematics.GetAllJointValues());
-            if (goalJoints != null)
-            {
-                calcDelta();
-            }
-        }
-
-        public void setFromGoalFrame() {
-            kinematics.TargetMatrix = WorldToRobot(manip.robot.Component.RootNode.GetFeatureTransformationInWorld(manip.robot.Component.FindFeature("goalFrame")));
-            goalJoints = new Vector(kinematics.GetAllJointValues());
-            if (startJoints != null)
-            {
-                calcDelta();
-            }
-        }
-        
+                
         public void kill() {
             killed = true;
             _app.Simulation.SimulationReset -= resetSimulation;
@@ -183,38 +196,76 @@ namespace CustomController
 
         private void resetSimulation(object sender, EventArgs e)
         {
+            moving = false;
+            finished = true;
             reset = true;
         }
 
-        private void RobotCycle()
+        private Vector correctJoints(Vector joints)
+        {
+
+            Vector jointsNew = new Vector(joints.Length);
+            for (int i = 0; i < joints.Length; i++)
+            {
+                jointsNew[p.p(i)] = joints[i];
+            }
+            return jointsNew;
+        }
+
+            private void RobotCycle()
         {
             if (killed) { return; }
 
             if(controllerWrapper == null) { return;  }
-            
+
+            if (!moving) { return; }
+
             try
             {
-                if (reset)
-                {
-                    manip.setConfiguration(startJoints);
-                    reset = false;
-                    finished = false;
-                    lastDistance = StaticKinetics.cartesianDistance(kinematics, startJoints, goalJoints); 
-                    return;
-                }
+                /* if (reset)
+                 {
+                     //manip.setConfiguration(startJoints);
+                     reset = false;
+                     finished = false;
+                     //lastDistance = StaticKinetics.cartesianDistance(kinematics, startJoints, goalJoints); 
+                     return;
+                 }*/
+
                 if (finished)
                 {
-                    Vector buffer = startJoints;
-                    startJoints = goalJoints;
-                    goalJoints = buffer;
+                    pathIndex++;
+                    if (pathIndex >= resultAngles.Count)
+                    {
+                        // TODO schmeiss die Nachricht raus
+
+                        IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
+                        movementFinished.Value = pythonState; // indicate motion done
+                        moving = false;
+                        Printer.print("Finished Motion");
+                        return;
+                    }
+
+                    Printer.print("Next Segment (" + (pathIndex + 1).ToString() + "/" + (resultAngles.Count - 1).ToString() + ")");
+                    startJoints = correctJoints(manip.getConfiguration());
+                    goalJoints = resultAngles[pathIndex];
                     calcDelta();
                     finished = false;
                     return;
                 }
                 Vector joints = manip.getConfiguration();
 
+
+
+
+                if (Double.IsNaN(deltaJoints[0]))
+                {
+                    Printer.print("GOT NAN!!");
+                    return;
+                }
+
                 //wait for next cycle 
-                if (this.deltaTime == 0) {
+                if (this.deltaTime == 0)
+                {
                     return;
                 }
 
@@ -225,15 +276,20 @@ namespace CustomController
                 {
                     finished = true;
                 }
-                
+
+                /*
                 Vector jointsNew = new Vector(joints.Length);
                 Vector dotJointsNew = new Vector(deltaJoints.Length);
-                for (int i = 0; i < joints.Length; i++) {
+                for (int i = 0; i < joints.Length; i++)
+                {
                     jointsNew[p.p(i)] = joints[i];
                     dotJointsNew[p.p(i)] = deltaJoints[i];
                 }
-                Vector cartesianSpeed = controllerWrapper.FKSpeed(jointsNew, dotJointsNew);
-               
+                */
+
+                //Vector cartesianSpeed = controllerWrapper.FKSpeed(jointsNew, dotJointsNew);
+                Vector cartesianSpeed = controllerWrapper.FKSpeed(joints, deltaJoints);
+
                 //Jacobian appro = Jacobian.calcApproJacobian(kinematics, joints);
                 //Vector cartesianSpeedAppro = appro.multiply(deltaJoints);
 
@@ -247,13 +303,13 @@ namespace CustomController
                 }
 
                 double factor = lastSpeed / cartesianTransSpeed.Norm;
-                                
+
                 for (int i = 0; i < deltaJoints.Length; i++)
                 {
                     joints[i] += deltaJoints[i] * factor;
                 }
-                
-                double speed = StaticKinetics.cartesianDistance(kinematics, manip.getConfiguration(), joints) / this.deltaTime;
+
+                //double speed = StaticKinetics.cartesianDistance(kinematics, manip.getConfiguration(), joints) / this.deltaTime;
                 manip.setConfiguration(joints);
 
                 //if (Math.Abs((commandedSpeed - speed) / commandedSpeed) > 0.05)

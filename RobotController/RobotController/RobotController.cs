@@ -70,6 +70,7 @@ namespace RobotController
                 robotList[robot].seperationCalculator = new SeparationCalculator(1.0, 1.0, 10.0, 10.0, 0.1);
                 robotList[robot].maxCartesianSpeed = 480.0;
                 robotList[robot].allowedCartesianSpeed = 480.0;
+                VisualizeSeperationDistance(robot, 400);
             }
             finally
             {
@@ -94,7 +95,7 @@ namespace RobotController
                 ISimNode node = robot.Component.FindNode("mountplate");
 
                 Matrix matrix = component.TransformationInReference;
-                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 0.0));
+                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
 
                 component.TransformationInReference = matrix;
 
@@ -121,7 +122,7 @@ namespace RobotController
                 ISimNode node = robot.Component.FindNode("mountplate");
 
                 Matrix matrix = comp.TransformationInReference;
-                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 0.0));
+                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
 
                 comp.TransformationInReference = matrix;
                 
@@ -293,7 +294,7 @@ namespace RobotController
                 foreach (IRobot robot in robotList.Keys)
                 {
                     if (!robot.IsValid) continue;
-                    //UpdateVisualizationDistance(robot);
+                    UpdateVisualizationDistance(robot);
                     double deltaTime = appElapsed - robotList[robot].LastTimeElapsed;
                     if (human != null)
                     {

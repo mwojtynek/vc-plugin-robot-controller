@@ -1,6 +1,6 @@
 ﻿using System;
 
-using SpeedAndSeparationMonitoring;
+//using SpeedAndSeparationMonitoring;
 
 using Caliburn.Micro;
 using VisualComponents.Create3D;
@@ -25,12 +25,12 @@ namespace CustomController
         private double d_intrusion = 160;
         private double s_human = 160;
         private double s_robot = 0.04;
-        SeparationCalculator seperationCalc;
+        //SeparationCalculator seperationCalc;
 
         // Speed Values
         private double m_robot = 30;
         private double m_payload = 0;
-        SpeedCalculator speedCalc;
+        //SpeedCalculator speedCalc;
 
         private bool initializedSSM = false;
 
@@ -57,7 +57,7 @@ namespace CustomController
                 }
             }
         }
-
+        /*
         public void initSSM() {
             seperationCalc = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);
             speedCalc = new SpeedCalculator(m_robot, m_payload);
@@ -94,6 +94,6 @@ namespace CustomController
                 IoC.Get<IMessageService>().AppendMessage(maximumSpeed.ToString() + " <-", MessageLevel.Warning);
             }
             
-        }
+        }*/
     }
 }

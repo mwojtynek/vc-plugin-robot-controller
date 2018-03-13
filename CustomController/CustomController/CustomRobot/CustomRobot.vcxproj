@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -31,7 +31,7 @@
     <ProjectGuid>{CD165505-F8BC-4B10-A6D5-E360C15B85A1}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>CustomRobot</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -125,9 +125,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>..\..\..\..\..\..\..\Program Files\Visual Components\Visual Components Premium 4.0</OutDir>
-    <IncludePath>C:\GIT\Controller\CustomController\CustomController\TrajectoryGenerator;C:\opt\nlopt-2.4.2-dll64;C:\opt\Eigen3;C:\opt\KDL\orocos_kdl\src;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\opt\nlopt-2.4.2-dll64;C:\GIT\Controller\CustomController\CustomController\x64\Release;C:\opt\KDL\orocos_kdl\build\src\Release;$(LibraryPath)</LibraryPath>
+    <OutDir>C:\Program Files\Visual Components\Visual Components Premium 4.0</OutDir>
+    <IncludePath>C:\Users\fleximir\Documents\workspaceAutolabel\rosi.plugin.pathplanner\include;C:\Users\fleximir\Documents\workspaceAutolabel\rosi.plugin.pathplanner\include\kdl;C:\GIT\Controller\CustomController\CustomController\TrajectoryGenerator;C:\opt\nlopt-2.4.2-dll64;C:\opt\Eigen3;C:\opt\KDL\orocos_kdl\src;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\opt\;C:\opt\nlopt-2.4.2-dll64;C:\GIT\Controller\CustomController\CustomController\x64\Release;C:\opt\KDL\orocos_kdl\build\src\Release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='TrajectoryTest|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -218,7 +218,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>TrajectoryGenerator.lib;orocos-kdl.lib;libnlopt-0.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>orocos-kdl.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='TrajectoryTest|x64'">

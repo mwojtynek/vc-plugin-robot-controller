@@ -282,6 +282,7 @@ namespace CustomController
         public CollectorPlugin([Import(typeof(IApplication))] IApplication app)
         {
             collector = new VisualRobotManipulatorCollector(app);
+            ConfigReader.init();
             IoC.Get<IMessageService>().AppendMessage("CustomController with Collector loaded...", MessageLevel.Warning);
         }
         public void Exit()
