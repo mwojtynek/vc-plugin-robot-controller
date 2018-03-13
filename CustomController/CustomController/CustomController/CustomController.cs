@@ -8,12 +8,10 @@ using VisualComponents.Create3D;
 using Caliburn.Micro;
 
 using RosiTools.Debugger;
-using RosiTools.SimulationTime;
 using RosiTools.Printer;
 
 using System.Xml;
-
-
+using System.ComponentModel;
 
 namespace CustomController
 {
@@ -41,10 +39,11 @@ namespace CustomController
         
         private bool killed = false;
 
-        private ISimulationTicker ticker;
-
         private newCustomController controllerWrapper;
         private Permutator p;
+
+        private double lastTime;
+        private double deltaTime;
 
         public CustomController(IApplication app, VisualRobotManipulator manip)
         {
@@ -72,12 +71,27 @@ namespace CustomController
             }
 
             IoC.Get<IDebugCall>().DebugCall[0] += printCart;
+            IoC.Get<IDebugCall>().DebugCall[1] += () => {
+                demandedSpeed = IoC.Get<IDebugCall>().NumValue[0];
+            };
             IoC.Get<IDebugCall>().DebugCall[2] += checkDH;
-
-            ticker = IoC.Get<ISimulationTicker>();
-            ticker.timerTick += RobotCycle;
-            app.Simulation.SimulationReset += resetSimulation;
             
+
+            app.Simulation.SimulationReset += resetSimulation;
+            IoC.Get<ISimulationService>().PropertyChanged += elapsedCallback;
+
+        }
+
+        private void elapsedCallback(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == "Elapsed") {
+                this.deltaTime = _app.Simulation.Elapsed - this.lastTime;
+                if (this.deltaTime < 0) {
+                    this.deltaTime = 0;
+                }
+                this.lastTime = _app.Simulation.Elapsed;
+                RobotCycle();
+            }
         }
 
         private void printCart()
@@ -161,8 +175,8 @@ namespace CustomController
         
         public void kill() {
             killed = true;
-            ticker.timerTick -= RobotCycle;
             _app.Simulation.SimulationReset -= resetSimulation;
+            IoC.Get<ISimulationService>().PropertyChanged -= elapsedCallback;
             IoC.Get<IDebugCall>().DebugCall[0] -= printCart;
             IoC.Get<IDebugCall>().DebugCall[2] -= checkDH;
         }
@@ -199,10 +213,15 @@ namespace CustomController
                 }
                 Vector joints = manip.getConfiguration();
 
+                //wait for next cycle 
+                if (this.deltaTime == 0) {
+                    return;
+                }
+
                 lastSpeed = Math.Min(demandedSpeed, maximumSpeed);
 
                 double dist = StaticKinetics.cartesianDistance(kinematics, joints, goalJoints);
-                if (dist < lastSpeed * ticker.tickTime)
+                if (dist < lastSpeed * this.deltaTime)
                 {
                     finished = true;
                 }
@@ -223,7 +242,7 @@ namespace CustomController
 
                 for (int i = 0; i < 3; i++)
                 {
-                    cartesianTransSpeed[i] = cartesianSpeed[i] / ticker.tickTime;
+                    cartesianTransSpeed[i] = cartesianSpeed[i] / this.deltaTime;
                     //cartesianTransSpeedAppro[i] = cartesianSpeedAppro[i] / ticker.tickTime;
                 }
 
@@ -234,7 +253,7 @@ namespace CustomController
                     joints[i] += deltaJoints[i] * factor;
                 }
                 
-                double speed = StaticKinetics.cartesianDistance(kinematics, manip.getConfiguration(), joints) / ticker.tickTime;
+                double speed = StaticKinetics.cartesianDistance(kinematics, manip.getConfiguration(), joints) / this.deltaTime;
                 manip.setConfiguration(joints);
 
                 //if (Math.Abs((commandedSpeed - speed) / commandedSpeed) > 0.05)
