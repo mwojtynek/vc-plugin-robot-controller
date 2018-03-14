@@ -10,7 +10,8 @@ using VisualComponents.UX.Shared;
 using Caliburn.Micro;
 using System.ComponentModel;
 using RosiTools.Debugger;
-
+using RosiTools.Printer;
+using System.Diagnostics;
 
 namespace CustomController
 {
@@ -195,7 +196,8 @@ namespace CustomController
         {
             _app = app;
             component = _app.World.FindComponent(componentName);
-            if (component == null) {
+            if (component == null)
+            {
                 throw new ArgumentException();
             }
             if (component.FindFeature("startFrame") == null)
@@ -209,6 +211,21 @@ namespace CustomController
                 goal.Name = "goalFrame";
             }
 
+            component.GetRobot().RobotController.CurrentStateChange += debug;
+
+        } 
+
+        private  void debug(object sender, EventArgs e)
+        {
+
+                StackTrace stackTrace = new System.Diagnostics.StackTrace();
+                Vector bla = this.getConfiguration();
+                //StackFrame frame = stackTrace.GetFrames()[1];
+                //string methodName = frame.GetMethod().Name;
+                //Type methodsClass = frame.GetMethod().DeclaringType;
+                //Printer.printTimed(methodsClass.FullName + methodName);
+                //Printer.printTimed(stackTrace.ToString());
+                
         }
         private bool isRobot(bool throwException) {
             IRobot robot = component.GetRobot();
@@ -259,7 +276,9 @@ namespace CustomController
         public void setConfiguration(double[] joints)
         {
             isRobot(true);
+            component.GetRobot().RobotController.InvalidateKinChains();
             component.GetRobot().RobotController.SetJointValues(joints);
+            
         }
 
         public void setConfiguration(Vector joints) {

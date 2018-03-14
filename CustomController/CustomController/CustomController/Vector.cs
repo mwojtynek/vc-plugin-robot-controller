@@ -172,5 +172,19 @@ namespace CustomController
             }
             return true;
         }
+
+        public override string ToString()
+        {
+            StringBuilder b = new StringBuilder(1 + Length * 7);
+            b.Append("(");
+            for (int i = 0; i < Length; i++) {
+                if (i != 0) {
+                    b.Append(", ");
+                }
+                b.AppendFormat("{0:0.000}", vals[i]);
+            }
+            b.Append(")");
+            return b.ToString();
+        }
     }
 }

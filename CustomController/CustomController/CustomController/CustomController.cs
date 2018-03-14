@@ -25,14 +25,14 @@ namespace CustomController
         double lastDistance;
         double lastSpeed = 400;
 
-        private double maximumSpeed = 400;
+        private double maximumSpeed = 1000;
 
         // Dieser Block sollte so irgendwann verschwinden
         Vector startJoints;
         Vector goalJoints;
         bool reset = false;
         bool finished = false;
-        private double demandedSpeed = 400;
+        private double demandedSpeed = 1000;
         
         
         private IApplication _app;
@@ -201,6 +201,8 @@ namespace CustomController
             reset = true;
         }
 
+        private double lastNorm = -1;
+
         private Vector correctJoints(Vector joints)
         {
 
@@ -212,7 +214,23 @@ namespace CustomController
             return jointsNew;
         }
 
-            private void RobotCycle()
+        private Vector makeJointsShittyAgain(Vector joints) {
+            Vector jointsNew = new Vector(joints.Length);
+            for (int i = 0; i < joints.Length; i++)
+            {
+                jointsNew[p.i(i)] = joints[i];
+            }
+            return jointsNew;
+        }
+
+
+
+
+
+
+        /********************************************/
+
+        private void RobotCycle()
         {
             if (killed) { return; }
 
@@ -241,18 +259,20 @@ namespace CustomController
                         IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
                         movementFinished.Value = pythonState; // indicate motion done
                         moving = false;
-                        Printer.print("Finished Motion");
+                        Printer.print("Finished Motion " + pythonState);
+                        Printer.print(correctJoints(manip.getConfiguration()).ToString());
+                        Printer.print(resultAngles[--pathIndex].ToString());
                         return;
                     }
 
-                    Printer.print("Next Segment (" + (pathIndex + 1).ToString() + "/" + (resultAngles.Count - 1).ToString() + ")");
+                    //Printer.print("Next Segment (" + pathIndex.ToString() + "/" + (resultAngles.Count - 1).ToString() + ")");
                     startJoints = correctJoints(manip.getConfiguration());
                     goalJoints = resultAngles[pathIndex];
                     calcDelta();
                     finished = false;
                     return;
                 }
-                Vector joints = manip.getConfiguration();
+                Vector joints = correctJoints(manip.getConfiguration());
 
 
 
@@ -271,11 +291,21 @@ namespace CustomController
 
                 lastSpeed = Math.Min(demandedSpeed, maximumSpeed);
 
+                /*
                 double dist = StaticKinetics.cartesianDistance(kinematics, joints, goalJoints);
                 if (dist < lastSpeed * this.deltaTime)
                 {
                     finished = true;
                 }
+                */
+                
+                /*
+                finished = true;
+                for (int i = 0; i < joints.Length; i++) {
+                    if (Math.Abs(goalJoints[i] - joints[i]) > 0.1) {
+                        finished = false; break;
+                    }
+                }*/
 
                 /*
                 Vector jointsNew = new Vector(joints.Length);
@@ -298,26 +328,43 @@ namespace CustomController
 
                 for (int i = 0; i < 3; i++)
                 {
-                    cartesianTransSpeed[i] = cartesianSpeed[i] / this.deltaTime;
+                    cartesianTransSpeed[i] = cartesianSpeed[i] / deltaTime;
                     //cartesianTransSpeedAppro[i] = cartesianSpeedAppro[i] / ticker.tickTime;
                 }
 
                 double factor = lastSpeed / cartesianTransSpeed.Norm;
 
+                Vector newJoints = new Vector(joints.Length);
+
                 for (int i = 0; i < deltaJoints.Length; i++)
                 {
-                    joints[i] += deltaJoints[i] * factor;
+                    newJoints[i] = joints[i] + deltaJoints[i] * factor;
                 }
 
-                //double speed = StaticKinetics.cartesianDistance(kinematics, manip.getConfiguration(), joints) / this.deltaTime;
-                manip.setConfiguration(joints);
+                double dist = (goalJoints - newJoints).Norm;
+                
+                if (lastNorm >= 0)
+                {
+                    if (dist > lastNorm)
+                    {
+                        finished = true;
+                        lastNorm = -1;
+                        return;
+                    }
 
-                //if (Math.Abs((commandedSpeed - speed) / commandedSpeed) > 0.05)
-                //{
-                //    IoC.Get<IMessageService>().AppendMessage("(" + manip.component.Name + ") Speed: " + speed.ToString(), MessageLevel.Warning);
-                //}
+                    if (dist < 3) {
+                        Printer.print(correctJoints(manip.getConfiguration()).ToString());
+                    }
+                }
 
-            } catch(Exception ee)
+                lastNorm = dist;
+
+                manip.setConfiguration(makeJointsShittyAgain(newJoints));
+
+                
+
+            }
+            catch (Exception ee)
             {
                 Printer.printTimed(ee.Message +"\n"+ ee.StackTrace);
             }
@@ -326,35 +373,6 @@ namespace CustomController
 
         public void changeData(String data)
         {
-
-            /*
-            String[] rows = data.Split('\n');
-            List<double> dh = new List<double>();
-            foreach (String i in rows)
-            {
-                if ( String.IsNullOrWhiteSpace(i)) { break; }
-                String[] vals = i.Split(',');
-                if (vals.Length != 4) {
-                    Printer.print("Malformed Note!");
-                    return;
-                }
-                foreach (String val in vals) {
-                    dh.Add(Double.Parse(val));
-                }
-            }
-            if (dh.Count % 4 != 0) {
-                Printer.print("Something went wrong while parsing note");
-                return;
-            }
-            if (dh.Count / 4 != manip.jointCount) {
-                Printer.print("Note does not describe enough joints!");
-                return;
-            }
-            double[] dhArray = dh.ToArray();
-            controllerWrapper = new newCustomController(dhArray);
-            Printer.print(manip.component.Name + " got a KDL Interface!");
-            */
-
             XmlDocument doc = new XmlDocument();
             try
             {
