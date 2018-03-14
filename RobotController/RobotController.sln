@@ -17,6 +17,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CustomController", "..\Cust
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CustomRobot", "..\CustomController\CustomController\CustomRobot\CustomRobot.vcxproj", "{CD165505-F8BC-4B10-A6D5-E360C15B85A1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RobotController", "RobotController\RobotController.csproj", "{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -153,6 +155,24 @@ Global
 		{CD165505-F8BC-4B10-A6D5-E360C15B85A1}.TrajectoryTest|x64.Build.0 = TrajectoryTest|x64
 		{CD165505-F8BC-4B10-A6D5-E360C15B85A1}.TrajectoryTest|x86.ActiveCfg = TrajectoryTest|Win32
 		{CD165505-F8BC-4B10-A6D5-E360C15B85A1}.TrajectoryTest|x86.Build.0 = TrajectoryTest|Win32
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|x64.Build.0 = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Debug|x86.Build.0 = Debug|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|x64.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|x64.Build.0 = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|x86.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.Release|x86.Build.0 = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.TrajectoryTest|Any CPU.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.TrajectoryTest|Any CPU.Build.0 = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.TrajectoryTest|x64.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.TrajectoryTest|x64.Build.0 = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.TrajectoryTest|x86.ActiveCfg = Release|Any CPU
+		{4F4CCC00-3F78-434E-A40B-D357C09CBA2A}.TrajectoryTest|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
