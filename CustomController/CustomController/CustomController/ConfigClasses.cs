@@ -14,17 +14,23 @@ using RosiTools.Printer;
 namespace CustomController
 {
 
-    public class ConfigReader {
+    public static class ConfigReader {
         public static Configuration config;
+
+        private static bool initialized = false;
 
         public static void init() {
             String configFile = Path.Combine(IoC.Get<IApplicationSettingService>().UserConfigFolder, "RobotController.config");
             ExeConfigurationFileMap map = new ExeConfigurationFileMap();
             map.ExeConfigFilename = configFile;
             config = ConfigurationManager.OpenMappedExeConfiguration(map, ConfigurationUserLevel.None);
+
+            initialized = true;
         }
 
         public static RobotSection readSection(String name) {
+            if (!initialized) init();
+
             RobotSection sec = config.Sections[name] as RobotSection;
             
             if (sec == null) {
@@ -37,8 +43,10 @@ namespace CustomController
             return sec;
         }
 
-        internal static StapleSection readStapleConfig()
+        public static StapleSection readStapleConfig()
         {
+            if (!initialized) init();
+
             StapleSection sec = config.Sections["staplePath"] as StapleSection;
 
             if (sec == null)

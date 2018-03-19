@@ -127,7 +127,7 @@ namespace CustomController
             if (isCustomController(behave)) {
                 CustomController control = getController(behave.Node.Component.Name);
                 if (control != null) {
-                    control.changeData((behave as INote).Note);
+                    //control.changeData((behave as INote).Note);
                 }
             }
         }
@@ -150,7 +150,7 @@ namespace CustomController
         {
             robots.Add(name, comp);
 
-            controllers.Add(name, new CustomController(app, new VisualRobotManipulator(app, name)));
+            //controllers.Add(name, new CustomController(app, new VisualRobotManipulator(app, name)));
             IoC.Get<IMessageService>().AppendMessage(name + " hinzugefügt", MessageLevel.Warning);
         }
 
@@ -291,6 +291,7 @@ namespace CustomController
         CustomController getController(string name);
     }
 
+    /*
     // Kann auch in die Collector klasse eingepflegt werden.
     [Export(typeof(IPlugin))]
     [Export(typeof(ICustomController))]
@@ -316,5 +317,5 @@ namespace CustomController
         public void Initialize()
         {
         }
-    }
+    }*/
 }

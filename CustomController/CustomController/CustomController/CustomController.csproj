@@ -75,13 +75,12 @@
     <Compile Include="ConfigClasses.cs" />
     <Compile Include="CustomController-SSM.cs" />
     <Compile Include="CustomController.cs" />
-    <Compile Include="Jacobian.cs" />
+    <Compile Include="LaserManager.cs" />
     <Compile Include="MotionPlanningManager.cs" />
     <Compile Include="newCustomController.cs" />
     <Compile Include="Permutator.cs" />
     <Compile Include="RobotParameters.cs" />
     <Compile Include="StartMovementActionItem.cs" />
-    <Compile Include="StaticKinetics.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Vector.cs" />
     <Compile Include="VisualRobotManipulator.cs" />

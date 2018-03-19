@@ -46,8 +46,4 @@ public:
 		
 	int IK(const double * frame, double * joints);
 
-
-
-
-
 };
