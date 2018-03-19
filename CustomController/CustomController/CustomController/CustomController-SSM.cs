@@ -7,6 +7,11 @@ using VisualComponents.Create3D;
 using Rosi.Components.Sensors;
 
 using RosiTools.Debugger;
+using SpeedAndSeparationMonitoring;
+using RosiTools.Printer;
+using RosiTools.Collector;
+using System.Collections.Generic;
+using Rosi.Components.Sensors.LaserScanner;
 
 namespace CustomController
 {
@@ -16,7 +21,6 @@ namespace CustomController
 
     public partial class CustomController
     {
-
         private bool useSSM = true;
 
         // Seperation Values
@@ -25,75 +29,83 @@ namespace CustomController
         private double d_intrusion = 160;
         private double s_human = 160;
         private double s_robot = 0.04;
-        //SeparationCalculator seperationCalc;
+        SeparationCalculator separationCalculator;
 
         // Speed Values
         private double m_robot = 30;
         private double m_payload = 0;
-        //SpeedCalculator speedCalc;
+        SpeedCalculator speedCalculator;
 
-        private bool initializedSSM = false;
+        Vector tcpSpeed;
 
-        public double MaxSpeed
+        public void InitSSM(Object sender, EventArgs data)
         {
-            get
+            separationCalculator = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);
+            speedCalculator = new SpeedCalculator(m_robot, m_payload);
+
+            IList<CollectorClass> scanners = IoC.Get<ICollectorManager>().getInstances("LaserScanner");
+
+            foreach (LaserScannerCollector scanner in scanners)
             {
-                return maximumSpeed;
-            }
-            set
-            {
-                /* MaxSpeed kann nicht verändert werden, wenn SSM genutzt werden soll.
-                 * Sinnvollerweise ändert die SSM dann nämlich die Geschwindigkeit */
-                if (!useSSM)
-                {
-                    if (value < 0)
-                    {
-                        maximumSpeed = 0;
-                    }
-                    else
-                    {
-                        maximumSpeed = value;
-                    }
-                }
+                scanner.OnHumanDetected += HumanDetected;
+                scanner.OnHumanLost += HumanLost;
             }
         }
-        /*
-        public void initSSM() {
-            seperationCalc = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);
-            speedCalc = new SpeedCalculator(m_robot, m_payload);
-            initializedSSM = true;
+
+        public void KillSSM(Object sender, EventArgs data)
+        {
+            separationCalculator = null;
+            speedCalculator = null;
+
+            IList<CollectorClass> scanners = IoC.Get<ICollectorManager>().getInstances("LaserScanner");
+
+            foreach (LaserScannerCollector scanner in scanners)
+            {
+                scanner.OnHumanDetected -= HumanDetected;
+                scanner.OnHumanLost -= HumanLost;
+            }
         }
 
-        public void updateSSM(LaserScannerHumanDetectedEventArgs data, double contactArea = 1, BodyPart bodypart = BodyPart.Chest)
+        public void HumanDetected(Object sender, LaserScannerHumanDetectedEventArgs data)
         {
-             // Die bindings sind scheinbar zwar vorhanden, sodass das hier aufgerufen wird. Wird aber nicht genutzt, daher ignorieren.
-            if (!useSSM)
+            IRobot robot = manip.robot;
+            if (robot.Equals(data.Robot))
             {
-                return;
-            }
-            // Falls die SSM nicht ignoriert wird, muss sie dennoch initialisiert werden...
-            if (!initializedSSM)
-            {
-                IoC.Get<IMessageService>().AppendMessage("SSM not initialized!", MessageLevel.Error);
-                return;
-            }
+                Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
 
-            double d = seperationCalc.GetSeparationDistance(data.MoveSpeed, lastSpeed);
-            if (IoC.Get<IDebugCall>().CheckValue[0])
-            {
-                IoC.Get<IMessageService>().AppendMessage(d.ToString() + " " + data.HumanPosition.Length.ToString() + " <-", MessageLevel.Warning);
-            }
+                Vector3 tcpPosition = robot.RobotController.ToolCenterPoint.GetP();
+                Vector3 humanPosition = data.HumanPosition;
 
-            if (d > data.HumanPosition.Length) {
-                maximumSpeed = 0;
-                return;
+                double speedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
+                double separationDistance = separationCalculator.GetSeparationDistance(data.MoveSpeed, speedTowardsHuman);
+                double allowedSpeed = speedCalculator.GetAllowedVelocity(BodyPart.Chest, data.MoveSpeed, 1);
+
+                double distance = (tcpPosition - humanPosition).Length;
+
+                maximumSpeed = distance < separationDistance ? 0 : allowedSpeed;
             }
-            maximumSpeed = speedCalc.GetAllowedVelocity(bodypart, data.MoveSpeed, contactArea);
-            if (IoC.Get<IDebugCall>().CheckValue[0])
+        }
+
+        public void HumanLost(Object sender, LaserScannerHumanLostEventArgs data)
+        {
+            if (manip.robot.Equals(data.Robot))
             {
-                IoC.Get<IMessageService>().AppendMessage(maximumSpeed.ToString() + " <-", MessageLevel.Warning);
+                maximumSpeed = demandedSpeed;
             }
-            
-        }*/
+        }
+
+        private double CalculateSpeedTowardsHuman(Vector3 tcpSpeed, Vector3 robotPosition, Vector3 humanPosition)
+        {
+            Vector3 positionOffset = humanPosition - robotPosition;
+            Vector3 normalizedOffset = positionOffset / positionOffset.Length;
+            Vector3 normalizedSpeed = tcpSpeed / tcpSpeed.Length;
+
+            double vecProduct = Vector3.Dot(normalizedOffset, normalizedSpeed);
+
+            double speedTowardsHuman = vecProduct * tcpSpeed.Length;
+            Printer.print(speedTowardsHuman.ToString());
+
+            return speedTowardsHuman;
+        }
     }
 }

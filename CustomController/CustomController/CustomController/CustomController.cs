@@ -61,10 +61,11 @@ namespace CustomController
             {
                 Printer.print(e.StackTrace);
             }
-            /*
+            
             if (useSSM) {
-                initSSM();
-            }*/
+                app.Simulation.SimulationStarted += InitSSM;
+                app.Simulation.SimulationStopped += KillSSM;
+            }
 
             IoC.Get<IDebugCall>().DebugCall[0] += printCart;
             IoC.Get<IDebugCall>().DebugCall[1] += () => {
@@ -72,7 +73,6 @@ namespace CustomController
             };
             IoC.Get<IDebugCall>().DebugCall[2] += checkDH;
             
-
             app.Simulation.SimulationReset += resetSimulation;
             IoC.Get<ISimulationService>().PropertyChanged += elapsedCallback;
 
@@ -262,6 +262,9 @@ namespace CustomController
                         Printer.print("Finished Motion " + pythonState);
                         Printer.print(correctJoints(manip.getConfiguration()).ToString());
                         Printer.print(resultAngles[--pathIndex].ToString());
+
+                        manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex]));
+
                         return;
                     }
 
