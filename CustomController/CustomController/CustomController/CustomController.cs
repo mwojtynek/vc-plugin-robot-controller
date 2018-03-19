@@ -53,7 +53,7 @@ namespace CustomController
         public int pathIndex;
         public bool moving = false;
 
-        Vector tcpSpeed;
+        Vector tcpSpeed = new Vector(3);
         
         public CustomController(ISimComponent component, IApplication app) : base(component, app)
         {
