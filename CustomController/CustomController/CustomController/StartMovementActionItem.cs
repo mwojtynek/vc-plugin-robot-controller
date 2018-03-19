@@ -9,7 +9,8 @@ using VisualComponents.Create3D;
 using VisualComponents.UX.Shared;
 using System.IO;
 using System.Threading;
-
+using RosiTools.Collector;
+using RosiTools.Printer;
 
 namespace CustomController
 {
@@ -71,8 +72,15 @@ namespace CustomController
                     {
                         IStringSignal movementFinished = (IStringSignal)robot.Component.FindBehavior("MovementFinished");
                         movementFinished.Value = ""; // empty string means no payload contained yet
-                        CustomController sinanController = IoC.Get<ICustomController>().getController(robotName);
-                        sinanController.moveAlongJointAngleList(pythonState, motionPlan.getLastResult());
+                        CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", robotParent) as CustomController;
+                        if (sinanController != null)
+                        {
+                            sinanController.moveAlongJointAngleList(pythonState, motionPlan);
+                        }
+                        else
+                        {
+                            ms.AppendMessage("Controller not found", MessageLevel.Warning);
+                        }
                     } else {
                         ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }

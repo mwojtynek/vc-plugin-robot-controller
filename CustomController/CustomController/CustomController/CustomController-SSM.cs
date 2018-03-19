@@ -36,8 +36,6 @@ namespace CustomController
         private double m_payload = 0;
         SpeedCalculator speedCalculator;
 
-        Vector tcpSpeed;
-
         public void InitSSM(Object sender, EventArgs data)
         {
             separationCalculator = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);

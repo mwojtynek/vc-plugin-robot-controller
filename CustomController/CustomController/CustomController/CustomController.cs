@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 using VisualComponents.Create3D;
 using Caliburn.Micro;
@@ -10,30 +9,29 @@ using Caliburn.Micro;
 using RosiTools.Debugger;
 using RosiTools.Printer;
 
+using RosiTools.Collector;
+
 using System.Xml;
 using System.ComponentModel;
 
+
 namespace CustomController
 {
-
-    public partial class CustomController
+    [CollectorType("CustomController")]
+    public partial class CustomController : CollectorClass
     {
         public VisualRobotManipulator manip;
         
-        private IMotionTarget kinematics;
         Vector deltaJoints;
-        double lastDistance;
         double lastSpeed = 400;
 
-        private double maximumSpeed = 1000;
+        private double maximumSpeed = 400;
 
-        // Dieser Block sollte so irgendwann verschwinden
         Vector startJoints;
         Vector goalJoints;
-        bool reset = false;
+
         bool finished = false;
         private double demandedSpeed = 1000;
-        
         
         private IApplication _app;
         
@@ -45,17 +43,24 @@ namespace CustomController
         private double lastTime;
         private double deltaTime;
 
-        public CustomController(IApplication app, VisualRobotManipulator manip)
+
+        private double lastNorm = -1;
+
+
+        public String pythonState;
+        public List<Vector> resultAngles = new List<Vector>();
+        public MotionPlan mp;
+        public int pathIndex;
+        public bool moving = false;
+
+        Vector tcpSpeed;
+        
+        public CustomController(ISimComponent component, IApplication app) : base(component, app)
         {
             try
             {
                 _app = app;
-                this.manip = manip;
-
-                kinematics = manip.robot.RobotController.CreateTarget();
-                kinematics.UseJointValues = false;
-                
-                changeData((manip.component.FindBehavior(VisualRobotManipulatorCollector.BEHAVIOR_NAME) as INote).Note);
+                this.manip = new VisualRobotManipulator(app, component.Name);
 
             } catch(Exception e)
             {
@@ -66,57 +71,37 @@ namespace CustomController
                 app.Simulation.SimulationStarted += InitSSM;
                 app.Simulation.SimulationStopped += KillSSM;
             }
-
-            IoC.Get<IDebugCall>().DebugCall[0] += printCart;
-            IoC.Get<IDebugCall>().DebugCall[1] += () => {
-                demandedSpeed = IoC.Get<IDebugCall>().NumValue[0];
-            };
-            IoC.Get<IDebugCall>().DebugCall[2] += checkDH;
             
             app.Simulation.SimulationReset += resetSimulation;
             IoC.Get<ISimulationService>().PropertyChanged += elapsedCallback;
-
         }
 
         private void elapsedCallback(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "Elapsed") {
                 this.deltaTime = _app.Simulation.Elapsed - this.lastTime;
-                if (this.deltaTime < 0) {
-                    this.deltaTime = 0;
-                }
                 this.lastTime = _app.Simulation.Elapsed;
-                RobotCycle();
+                if (this.deltaTime > 0)
+                {
+                    RobotCycle();
+                }
             }
         }
-
-        private void printCart()
-        {
-            /*
-            Printer.print(manip.component.Name);
-            kinematics.SetAllJointValues(manip.getConfigurationDouble());
-            Matrix m = WorldToRobot(kinematics.TargetMatrix);
-            StringBuilder b = new StringBuilder();
-            b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nx, m.Ox, m.Ax, m.Px);
-            b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Ny, m.Oy, m.Ay, m.Py);
-            b.AppendFormat("{0:##0.##}\t{1:##0.##}\t{2:##0.##}\t{3:####0.##}\n", m.Nz, m.Oz, m.Az, m.Pz);
-            Printer.print(b.ToString());*/
-        }
-
-        public String pythonState;
-        public List<Vector> resultAngles = new List<Vector>();
-        public int pathIndex;
-        public bool moving = false;
-
-        public void moveAlongJointAngleList(string pythonState, VectorOfDoubleVector vectorOfDoubleVector)
+        
+        public void moveAlongJointAngleList(string pythonState, MotionPlan motionPlan) //VectorOfDoubleVector vectorOfDoubleVector)
         {
             IoC.Get<IMessageService>().AppendMessage("Starting Motion...", MessageLevel.Warning);
             this.pythonState = pythonState;
+
+
+
+            mp = motionPlan;
             resultAngles.Clear();
             
-            foreach(VectorOfDouble jointAngles in vectorOfDoubleVector){
+            foreach(VectorOfDouble jointAngles in motionPlan.getLastResult()){
                 resultAngles.Add(new Vector(jointAngles.ToArray()));
             }
+
 
             pathIndex = 0;
 
@@ -131,77 +116,30 @@ namespace CustomController
                 }
                 goalJoints = resultAngles[pathIndex];
             }
-            calcDelta();
-
-            finished = false;
-            moving = true;
-
-        }
-
-        private void recursivePrint(ISimNode cur, int level) {
-            string dash = new string('\t', level);
-            if (cur.DofType != JointType.Custom)
-            {
-                Printer.print(dash + cur.Name);
-            }
-            else
-            {
-                IExpressionProperty off = cur.GetProperty("Offset") as IExpressionProperty;
-                IExpressionProperty joint = cur.Dof.GetProperty("Joint") as IExpressionProperty;
-                if (joint != null && off != null)
-                {
-                    Printer.print(dash + cur.Name + " " + joint.Expression+ " " + off.Expression);
-
-                } else
-                {
-                    foreach (string str in cur.Dof.PropertyNames)
-                    {
-                        Printer.print(dash + cur.Name + " " + str + " " + cur.Dof.GetProperty(str).GetType().ToString());
-                    }
-
-                }
-            }
-
-            if (cur.Children.Count != 0)
-            {
-                foreach (ISimNode child in cur.Children)
-                {
-                    recursivePrint(child, level + 1);
-                }
-            }
-        }
-
-        ~CustomController() {
-            kill();
+            startMotion();
         }
         
-        private Matrix WorldToRobot(Matrix from)
-        {
-            return Matrix.Multiply(kinematics.WorldBaseMatrix.Inverse(), from);
-        }
-        
-        private void calcDelta() {
+        private void startMotion() {
             deltaJoints = goalJoints - startJoints;
             deltaJoints.Norm = 1;
-            reset = true;
+
+            moving = true;
+            finished = false;
+
+            lastNorm = -1;
         }
                 
         public void kill() {
             killed = true;
             _app.Simulation.SimulationReset -= resetSimulation;
             IoC.Get<ISimulationService>().PropertyChanged -= elapsedCallback;
-            IoC.Get<IDebugCall>().DebugCall[0] -= printCart;
-            IoC.Get<IDebugCall>().DebugCall[2] -= checkDH;
         }
 
         private void resetSimulation(object sender, EventArgs e)
         {
             moving = false;
             finished = true;
-            reset = true;
         }
-
-        private double lastNorm = -1;
 
         private Vector correctJoints(Vector joints)
         {
@@ -222,35 +160,27 @@ namespace CustomController
             }
             return jointsNew;
         }
-
-
-
-
-
-
+        
         /********************************************/
 
         private void RobotCycle()
         {
-            if (killed) { return; }
-
-            if(controllerWrapper == null) { return;  }
-
-            if (!moving) { return; }
-
+            if (
+                killed ||
+                controllerWrapper == null ||
+                !moving)
+            {
+                return;
+            }
+            
             try
             {
-                /* if (reset)
-                 {
-                     //manip.setConfiguration(startJoints);
-                     reset = false;
-                     finished = false;
-                     //lastDistance = StaticKinetics.cartesianDistance(kinematics, startJoints, goalJoints); 
-                     return;
-                 }*/
 
+                // finish check
                 if (finished)
                 {
+
+                    // next segment available check
                     pathIndex++;
                     if (pathIndex >= resultAngles.Count)
                     {
@@ -260,112 +190,92 @@ namespace CustomController
                         movementFinished.Value = pythonState; // indicate motion done
                         moving = false;
                         Printer.print("Finished Motion " + pythonState);
-                        Printer.print(correctJoints(manip.getConfiguration()).ToString());
-                        Printer.print(resultAngles[--pathIndex].ToString());
 
-                        manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex]));
+                        manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex - 1]));
 
                         return;
                     }
-
-                    //Printer.print("Next Segment (" + pathIndex.ToString() + "/" + (resultAngles.Count - 1).ToString() + ")");
+                    
                     startJoints = correctJoints(manip.getConfiguration());
                     goalJoints = resultAngles[pathIndex];
-                    calcDelta();
-                    finished = false;
+                    startMotion();
                     return;
                 }
+
+                // NaN check entfernt: darf eigentlich nicht passieren, nachdem startMotion aufgerufen wurde (erst dann wird moving true)
+                // Cycle Check entfern: sollte von außerhalb geschehen. Ein Cycle-Aufruf ohne Cycle ist herrlich behindert...
+
+                // aktuelle Joints beziehen (in korrekter Reihenfolge)
                 Vector joints = correctJoints(manip.getConfiguration());
-
-
-
-
-                if (Double.IsNaN(deltaJoints[0]))
-                {
-                    Printer.print("GOT NAN!!");
-                    return;
-                }
-
-                //wait for next cycle 
-                if (this.deltaTime == 0)
-                {
-                    return;
-                }
-
+                
+                // MaxSpeed bestimmen
+                // TODO pure-PTP und SSM-limited PTP unterscheiden!
                 lastSpeed = Math.Min(demandedSpeed, maximumSpeed);
 
-                /*
-                double dist = StaticKinetics.cartesianDistance(kinematics, joints, goalJoints);
-                if (dist < lastSpeed * this.deltaTime)
-                {
-                    finished = true;
-                }
-                */
-                
-                /*
-                finished = true;
-                for (int i = 0; i < joints.Length; i++) {
-                    if (Math.Abs(goalJoints[i] - joints[i]) > 0.1) {
-                        finished = false; break;
-                    }
-                }*/
+                // TODO FKSpeed untersuchen!
+                // (v, omega) = J(q) * q_dot  | wird hier berechnet
+                //Vector cartesianSpeed2 = controllerWrapper.FKSpeed(joints, deltaJoints);
 
-                /*
-                Vector jointsNew = new Vector(joints.Length);
-                Vector dotJointsNew = new Vector(deltaJoints.Length);
-                for (int i = 0; i < joints.Length; i++)
-                {
-                    jointsNew[p.p(i)] = joints[i];
-                    dotJointsNew[p.p(i)] = deltaJoints[i];
-                }
-                */
-
-                //Vector cartesianSpeed = controllerWrapper.FKSpeed(jointsNew, dotJointsNew);
-                Vector cartesianSpeed = controllerWrapper.FKSpeed(joints, deltaJoints);
-
-                //Jacobian appro = Jacobian.calcApproJacobian(kinematics, joints);
-                //Vector cartesianSpeedAppro = appro.multiply(deltaJoints);
-
+                MotionPlanRobotDescription.MotionPlanForwardKinematicResult value = mp.getMotionPlanRobotDescription().getVelFK(joints.toWeirdVector(), deltaJoints.toWeirdVector());
+                if (!value.success) return;
                 Vector cartesianTransSpeed = new Vector(3);
-                //Vector cartesianTransSpeedAppro = new Vector(3);
 
+                // v aus (v,omega) wird extrahiert und korrigiert(?) TODO richtig an KDL Schnittstelle anpassen
+
+                /*
                 for (int i = 0; i < 3; i++)
                 {
-                    cartesianTransSpeed[i] = cartesianSpeed[i] / deltaTime;
-                    //cartesianTransSpeedAppro[i] = cartesianSpeedAppro[i] / ticker.tickTime;
-                }
+                    cartesianTransSpeed2[i] = cartesianSpeed2[i] / deltaTime;
+                }*/
 
+
+                cartesianTransSpeed[0] = value.x * 1000 / deltaTime;
+                cartesianTransSpeed[1] = value.y * 1000 / deltaTime;
+                cartesianTransSpeed[2] = value.z * 1000 / deltaTime;
+
+                // Geschwindigkeitsfaktor anpassen
                 double factor = lastSpeed / cartesianTransSpeed.Norm;
 
-                Vector newJoints = new Vector(joints.Length);
 
+                // neue Joints berechnen mit den an die Geschwindigkeit angepassten deltaJoints
+                // q_n+1 = q_n + factor * q_dot
+                Vector newJoints = new Vector(joints.Length);
                 for (int i = 0; i < deltaJoints.Length; i++)
                 {
                     newJoints[i] = joints[i] + deltaJoints[i] * factor;
                 }
-
+                
+                // Distanz zum Ziel berechnen (in Joint-Space)
                 double dist = (goalJoints - newJoints).Norm;
                 
+                // check ob es eine letzte Distanz gibt (mindestens 2. Aufruf)
                 if (lastNorm >= 0)
                 {
+                    // check ob Ziel überschritten wird.
                     if (dist > lastNorm)
                     {
+                        // Bewegung beenden und statt zu überschwingen fix auf das Ziel setzen (haben eh unstetige Geschwindigkeiten)
                         finished = true;
-                        lastNorm = -1;
-                        return;
+                        newJoints = goalJoints;
                     }
-
-                    if (dist < 3) {
-                        Printer.print(correctJoints(manip.getConfiguration()).ToString());
-                    }
+                    
                 }
-
                 lastNorm = dist;
 
+                tcpSpeed = new Vector(3);
+                MotionPlanRobotDescription.MotionPlanForwardKinematicResult before = mp.getMotionPlanRobotDescription().getFK(joints.toWeirdVector(), true);
+                MotionPlanRobotDescription.MotionPlanForwardKinematicResult after = mp.getMotionPlanRobotDescription().getFK(newJoints.toWeirdVector(), true);
+                if (!before.success || !after.success) return;
+
+                tcpSpeed[0] = (after.x - before.x) * 1000 / deltaTime;
+                tcpSpeed[1] = (after.y - before.y) * 1000 / deltaTime;
+                tcpSpeed[2] = (after.z - before.z) * 1000 / deltaTime;
+
+                Printer.printTimed("Speed: " + tcpSpeed.Norm.ToString() +" (Soll: " + lastSpeed.ToString() + ")");
+
+                // Joints in Visual Components Reihenfolge setzen
                 manip.setConfiguration(makeJointsShittyAgain(newJoints));
-
                 
-
             }
             catch (Exception ee)
             {
@@ -374,7 +284,15 @@ namespace CustomController
 
         }
 
-        public void changeData(String data)
+
+        ~CustomController()
+        {
+            kill();
+        }
+
+        /*********************** Altlasten ***************************/
+
+        public override void changeNote(String data)
         {
             XmlDocument doc = new XmlDocument();
             try
@@ -434,7 +352,7 @@ namespace CustomController
                     p = new Permutator(perm.ToArray());
                 }
             }
-
+            
             if (controllerWrapper == null)
             {
                 Printer.print(manip.component.Name + " has not a valid Xml configuration (joints is missing!)");
@@ -446,7 +364,7 @@ namespace CustomController
                 p = new Permutator(manip.jointCount);
             }
         }
-
+        /*
         public void checkDH() { 
             if(controllerWrapper == null) { return;  }
             int joint = (int)IoC.Get<IDebugCall>().NumValue[0];
@@ -502,7 +420,9 @@ namespace CustomController
 
                 Printer.print(bld.ToString());
             
-        }
-        
+        }*/
+
+
+
     }
 }

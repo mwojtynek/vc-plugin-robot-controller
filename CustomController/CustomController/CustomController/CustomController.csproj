@@ -71,13 +71,11 @@
     <Compile Include="ConfigClasses.cs" />
     <Compile Include="CustomController-SSM.cs" />
     <Compile Include="CustomController.cs" />
-    <Compile Include="Jacobian.cs" />
     <Compile Include="MotionPlanningManager.cs" />
     <Compile Include="newCustomController.cs" />
     <Compile Include="Permutator.cs" />
     <Compile Include="RobotParameters.cs" />
     <Compile Include="StartMovementActionItem.cs" />
-    <Compile Include="StaticKinetics.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Vector.cs" />
     <Compile Include="VisualRobotManipulator.cs" />
@@ -90,6 +88,10 @@
     <ProjectReference Include="..\..\..\..\rosi.plugin.pathplanner\vcMotionPlannerC#\vcMotionPlannerCSharp\vcMotionPlannerCSharp\vcMotionPlannerCSharp.csproj">
       <Project>{b7ebea8f-65e0-4b46-8119-807b60c9c061}</Project>
       <Name>vcMotionPlannerCSharp</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\..\rosi.plugin.tools\RosiTools\RosiTools.csproj">
+      <Project>{a7e3e678-4217-45d9-a8c6-77c6bdb71d04}</Project>
+      <Name>RosiTools</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\..\..\rosi.plugin.tools\RosiTools\RosiTools.csproj">
       <Project>{a7e3e678-4217-45d9-a8c6-77c6bdb71d04}</Project>
