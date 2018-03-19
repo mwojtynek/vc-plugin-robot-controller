@@ -49,10 +49,6 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\..\..\..\..\..\..\..\Program Files\Visual Components\Visual Components Premium 4.0\CustomRobot.dll</HintPath>
     </Reference>
-    <Reference Include="Plugin.RosiTools, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\..\..\..\..\Program Files\Visual Components\Visual Components Premium 4.0\Plugin.RosiTools.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Configuration" />
@@ -75,7 +71,6 @@
     <Compile Include="ConfigClasses.cs" />
     <Compile Include="CustomController-SSM.cs" />
     <Compile Include="CustomController.cs" />
-    <Compile Include="LaserManager.cs" />
     <Compile Include="MotionPlanningManager.cs" />
     <Compile Include="newCustomController.cs" />
     <Compile Include="Permutator.cs" />
@@ -97,6 +92,10 @@
     <ProjectReference Include="..\..\..\..\rosi.plugin.ssm\SpeedAndSeparationMonitoring\SpeedAndSeparationMonitoring.csproj">
       <Project>{286abc6b-26f5-444a-9b92-ff271cddc7c5}</Project>
       <Name>SpeedAndSeparationMonitoring</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\..\..\rosi.plugin.tools\RosiTools\RosiTools.csproj">
+      <Project>{a7e3e678-4217-45d9-a8c6-77c6bdb71d04}</Project>
+      <Name>RosiTools</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

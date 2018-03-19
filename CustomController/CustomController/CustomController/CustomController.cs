@@ -49,8 +49,11 @@ namespace CustomController
 
         public String pythonState;
         public List<Vector> resultAngles = new List<Vector>();
+        public MotionPlan mp;
         public int pathIndex;
         public bool moving = false;
+
+        Vector tcpSpeed;
         
         public CustomController(ISimComponent component, IApplication app) : base(component, app)
         {
@@ -75,7 +78,6 @@ namespace CustomController
 
             app.Simulation.SimulationReset += resetSimulation;
             IoC.Get<ISimulationService>().PropertyChanged += elapsedCallback;
-            Printer.print("Robot added");
         }
 
         private void elapsedCallback(object sender, PropertyChangedEventArgs e)
@@ -90,15 +92,20 @@ namespace CustomController
             }
         }
         
-        public void moveAlongJointAngleList(string pythonState, VectorOfDoubleVector vectorOfDoubleVector)
+        public void moveAlongJointAngleList(string pythonState, MotionPlan motionPlan) //VectorOfDoubleVector vectorOfDoubleVector)
         {
             IoC.Get<IMessageService>().AppendMessage("Starting Motion...", MessageLevel.Warning);
             this.pythonState = pythonState;
+
+
+
+            mp = motionPlan;
             resultAngles.Clear();
             
-            foreach(VectorOfDouble jointAngles in vectorOfDoubleVector){
+            foreach(VectorOfDouble jointAngles in motionPlan.getLastResult()){
                 resultAngles.Add(new Vector(jointAngles.ToArray()));
             }
+
 
             pathIndex = 0;
 
@@ -186,10 +193,10 @@ namespace CustomController
                         IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
                         movementFinished.Value = pythonState; // indicate motion done
                         moving = false;
-                        Printer.print("Finished Motion " + pythonState +"\n" + correctJoints(manip.getConfiguration()).ToString() +"\n" + resultAngles[--pathIndex].ToString());
+                        Printer.print("Finished Motion " + pythonState);
 
                         //HOTFIX
-                        manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex]));
+                        manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex - 1]));
 
                         return;
                     }
@@ -212,15 +219,24 @@ namespace CustomController
 
                 // TODO FKSpeed untersuchen!
                 // (v, omega) = J(q) * q_dot  | wird hier berechnet
-                Vector cartesianSpeed = controllerWrapper.FKSpeed(joints, deltaJoints);
+                //Vector cartesianSpeed2 = controllerWrapper.FKSpeed(joints, deltaJoints);
 
+                MotionPlanRobotDescription.MotionPlanForwardKinematicResult value = mp.getMotionPlanRobotDescription().getVelFK(joints.toWeirdVector(), deltaJoints.toWeirdVector());
+                if (!value.success) return;
                 Vector cartesianTransSpeed = new Vector(3);
-                
+
                 // v aus (v,omega) wird extrahiert und korrigiert(?) TODO richtig an KDL Schnittstelle anpassen
+
+                /*
                 for (int i = 0; i < 3; i++)
                 {
-                    cartesianTransSpeed[i] = cartesianSpeed[i] / deltaTime;
-                }
+                    cartesianTransSpeed2[i] = cartesianSpeed2[i] / deltaTime;
+                }*/
+
+
+                cartesianTransSpeed[0] = value.x * 1000 / deltaTime;
+                cartesianTransSpeed[1] = value.y * 1000 / deltaTime;
+                cartesianTransSpeed[2] = value.z * 1000 / deltaTime;
 
                 // Geschwindigkeitsfaktor anpassen
                 double factor = lastSpeed / cartesianTransSpeed.Norm;
@@ -250,7 +266,18 @@ namespace CustomController
                     
                 }
                 lastNorm = dist;
-                
+
+                tcpSpeed = new Vector(3);
+                MotionPlanRobotDescription.MotionPlanForwardKinematicResult before = mp.getMotionPlanRobotDescription().getFK(joints.toWeirdVector(), true);
+                MotionPlanRobotDescription.MotionPlanForwardKinematicResult after = mp.getMotionPlanRobotDescription().getFK(newJoints.toWeirdVector(), true);
+                if (!before.success || !after.success) return;
+
+                tcpSpeed[0] = (after.x - before.x) * 1000 / deltaTime;
+                tcpSpeed[1] = (after.y - before.y) * 1000 / deltaTime;
+                tcpSpeed[2] = (after.z - before.z) * 1000 / deltaTime;
+
+                Printer.printTimed("Speed: " + tcpSpeed.Norm.ToString() +" (Soll: " + lastSpeed.ToString() + ")");
+
                 // Joints in Visual Components Reihenfolge setzen
                 manip.setConfiguration(makeJointsShittyAgain(newJoints));
                 
@@ -272,7 +299,6 @@ namespace CustomController
 
         public override void changeNote(String data)
         {
-            Printer.print("Note change");
             XmlDocument doc = new XmlDocument();
             try
             {
@@ -331,7 +357,7 @@ namespace CustomController
                     p = new Permutator(perm.ToArray());
                 }
             }
-
+            
             if (controllerWrapper == null)
             {
                 Printer.print(manip.component.Name + " has not a valid Xml configuration (joints is missing!)");

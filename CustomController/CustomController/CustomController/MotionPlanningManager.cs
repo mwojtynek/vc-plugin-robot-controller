@@ -164,10 +164,10 @@ namespace CustomController
             startOut += "]";
             goalOut += "]";
 
-            motionPlan.setSolveTime(10.0);
+            motionPlan.setSolveTime(1.0);
             motionPlan.setStateValidityCheckingResolution(0.01);
             //motionPlan.setReportFirstExactSolution(true);
-            motionPlan.setPlannerByString("RRTConnect");
+            motionPlan.setPlannerByString("LazyPRMstar");
             
             if (motionPlan.plan() > 0)
             {

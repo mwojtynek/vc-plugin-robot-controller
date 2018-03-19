@@ -75,7 +75,7 @@ namespace CustomController
                         CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", robotParent) as CustomController;
                         if (sinanController != null)
                         {
-                            sinanController.moveAlongJointAngleList(pythonState, motionPlan.getLastResult());
+                            sinanController.moveAlongJointAngleList(pythonState, motionPlan);
                         }
                         else
                         {
