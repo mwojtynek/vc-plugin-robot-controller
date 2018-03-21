@@ -83,6 +83,7 @@ namespace CustomController
                 this.lastTime = _app.Simulation.Elapsed;
                 if (this.deltaTime > 0)
                 {
+                    UpdateVisualizationDistance();
                     RobotCycle();
                 }
             }
@@ -271,7 +272,7 @@ namespace CustomController
                 tcpSpeed[1] = (after.y - before.y) * 1000 / deltaTime;
                 tcpSpeed[2] = (after.z - before.z) * 1000 / deltaTime;
 
-                Printer.printTimed("Speed: " + tcpSpeed.Norm.ToString() +" (Soll: " + lastSpeed.ToString() + ")");
+                //Printer.printTimed("Speed: " + tcpSpeed.Norm.ToString() +" (Soll: " + lastSpeed.ToString() + ")");
 
                 // Joints in Visual Components Reihenfolge setzen
                 manip.setConfiguration(makeJointsShittyAgain(newJoints));
