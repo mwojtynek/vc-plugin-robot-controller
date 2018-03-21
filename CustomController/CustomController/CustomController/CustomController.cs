@@ -37,7 +37,7 @@ namespace CustomController
         
         private bool killed = false;
 
-        private newCustomController controllerWrapper;
+        //private newCustomController controllerWrapper;
         private Permutator p;
 
         private double lastTime;
@@ -167,7 +167,7 @@ namespace CustomController
         {
             if (
                 killed ||
-                controllerWrapper == null ||
+                //controllerWrapper == null ||
                 !moving)
             {
                 tcpSpeed = new Vector(3);
@@ -341,7 +341,7 @@ namespace CustomController
                         }
                     }
                     double[] dhArray = dh.ToArray();
-                    controllerWrapper = new newCustomController(dhArray);
+                    //controllerWrapper = new newCustomController(dhArray);
                 }
                 if (node.Name == "permutation")
                 {
@@ -354,11 +354,11 @@ namespace CustomController
                 }
             }
             
-            if (controllerWrapper == null)
+            /*if (controllerWrapper == null)
             {
                 Printer.print(manip.component.Name + " has not a valid Xml configuration (joints is missing!)");
                 return;
-            }
+            }*/
 
             if (p == null)
             {
