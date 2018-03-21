@@ -96,12 +96,16 @@ namespace CustomController
         {
             Vector3 positionOffset = humanPosition - robotPosition;
             Vector3 normalizedOffset = positionOffset / positionOffset.Length;
-            Vector3 normalizedSpeed = tcpSpeed / tcpSpeed.Length;
+            Vector3 normalizedSpeed = tcpSpeed;
+            if (tcpSpeed.Length != 0)
+            {
+                normalizedSpeed /=  tcpSpeed.Length;
+            }
 
             double vecProduct = Vector3.Dot(normalizedOffset, normalizedSpeed);
 
             double speedTowardsHuman = vecProduct * tcpSpeed.Length;
-            Printer.print(speedTowardsHuman.ToString());
+            //Printer.print("Speed towards Human: " + speedTowardsHuman.ToString());
 
             return speedTowardsHuman;
         }

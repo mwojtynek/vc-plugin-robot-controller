@@ -170,6 +170,7 @@ namespace CustomController
                 controllerWrapper == null ||
                 !moving)
             {
+                tcpSpeed = new Vector(3);
                 return;
             }
             

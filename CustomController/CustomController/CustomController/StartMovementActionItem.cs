@@ -11,6 +11,7 @@ using System.IO;
 using System.Threading;
 using RosiTools.Collector;
 using RosiTools.Printer;
+using vcMotionPlannerCSharp;
 
 namespace CustomController
 {
@@ -21,17 +22,25 @@ namespace CustomController
         private Lazy<IApplication> app = null;
 
         IMessageService ms = null;
-        IRobot robot = null;
-        MotionPlan motionPlan = null;
-
 
         public StartMovementActionItem() : base("StartMovement")
         {
             ms = IoC.Get<IMessageService>();
             ms.AppendMessage("Constructor of StartMovement Action Item called", MessageLevel.Warning);
         }
+        public static readonly string KinStart = "base_link";
+        public static readonly string KinEnd = "tool0";
+        class VCJobInfo
+        {
+            public string pythonState;
+            public IRobot robot;
 
-        MotionPlanningManager mpm;
+            public VCJobInfo(IRobot robot, string pythonState)
+            {
+                this.robot = robot;
+                this.pythonState = pythonState;
+            }
+        }
         public override void Execute(PropertyCollection args)
         {
                 if(args.Count < 6)
@@ -39,10 +48,10 @@ namespace CustomController
                     ms.AppendMessage("Too few arguments were passed to StartMovementActionItem. [robotName, startFrameName, goalFrameName, maxAllowedCartesianSpeed, payload, stapleComponentName]", MessageLevel.Warning);
                     return;
                 }
-            ms.AppendMessage("Starting MotionPlanner...", MessageLevel.Warning);
+                ms.AppendMessage("StartMovementActionItem Execute: ", MessageLevel.Warning);
                 String robotName = (String)args.GetByIndex(0).Value;
                 ISimComponent robotParent = app.Value.World.FindComponent(robotName);
-                robot = robotParent.GetRobot();
+                IRobot robot = robotParent.GetRobot();
 
                 String startFrameName = (String)args.GetByIndex(1).Value;
                 String goalFrameName = (String)args.GetByIndex(2).Value;
@@ -52,43 +61,147 @@ namespace CustomController
 
 
                 RobotSection parameter = ConfigReader.readSection(robotName);
+            
+                MotionPlanJob job = new MotionPlanJob(parameter.urdfFile.Path, KinStart, KinEnd);
+                job.AddObstacle(parameter.obsFile.Path);
 
-                mpm = new MotionPlanningManager();
-                motionPlan = mpm.InitializeMotionPlanner(robot,
-                                                        parameter.urdfFile.Path,
-                                                        RobotParameters.KinStart, RobotParameters.KinEnd,
-                                                        parameter.obsFile.Path);
-                if(stapleComponentName != null && stapleComponentName != "")
+                Vector3 wpr = robot.Component.TransformationInWorld.GetWPR();
+
+                job.SetRobotTransformation(robot.Component.TransformationInWorld.GetP().X / 1000,
+                                            robot.Component.TransformationInWorld.GetP().Y / 1000,
+                                            robot.Component.TransformationInWorld.GetP().Z / 1000,
+                                            wpr.X, wpr.Y, wpr.Z);
+                
+
+            if (stapleComponentName != null && stapleComponentName != "")
                 {
-                    stapleConfig(stapleComponentName);
+                    stapleConfig(stapleComponentName, job);
                 }
+
+            // we need the current position of the robot to enhance the result of the inverse kinematics
+            VectorOfDouble currentPositionJointAngles = new VectorOfDouble(robot.RobotController.Joints.Count);
+
+            if (robot.RobotController.Joints.Count == 7)
+            {
+                currentPositionJointAngles.Add(robot.RobotController.Joints[0].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[1].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[6].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);
+            }
+            else
+            {
+                currentPositionJointAngles.Add(robot.RobotController.Joints[0].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[1].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[2].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[3].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[4].Value);
+                currentPositionJointAngles.Add(robot.RobotController.Joints[5].Value);
+            }
             
+            //TODO: Make those frames global?
+            IFeature startNode = robot.Component.FindFeature(startFrameName);
+            if (startNode == null)
+            {
+                IoC.Get<IMessageService>().AppendMessage("Start Frame \"" + startFrameName + "\" was not found.", MessageLevel.Error);
+                return;
+            }
+            IFeature goalNode = robot.Component.FindFeature(goalFrameName);
+            if (goalNode == null)
+            {
+                IoC.Get<IMessageService>().AppendMessage("Goal Frame \"" + goalFrameName + "\" was not found.", MessageLevel.Error);
+                return;
+            }
+
+
+            Matrix startPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(startNode);
+            Matrix goalPosition = robot.Component.RootNode.GetFeatureTransformationInWorld(goalNode);
+            Vector3 startRotation = startPosition.GetWPR();
+            Vector3 goalRotation = goalPosition.GetWPR();
+            Vector3 robotPosition = robot.Component.TransformationInWorld.GetP();
+            VectorOfDouble startJointAngles = currentPositionJointAngles;
+
+            VectorOfDouble goalCartPos = new VectorOfDouble();
+            goalCartPos.Add(goalPosition.GetP().X / 1000);
+            goalCartPos.Add(goalPosition.GetP().Y / 1000);
+            goalCartPos.Add(goalPosition.GetP().Z / 1000);
+            goalCartPos.Add(goalRotation.X);
+            goalCartPos.Add(goalRotation.Y);
+            goalCartPos.Add(goalRotation.Z);
             
-                VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
-                if (resultMotion != null)
+            job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
+            // TODO: Allow initial state to be passed when specifying cartesian position
+/*            VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
+                                                                goalPosition.GetP().Y / 1000,
+                                                                goalPosition.GetP().Z / 1000,
+                                                                goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles, 0.5, "Distance");*/
+
+            job.SetStartStateFromVector(startJointAngles);
+            
+            job.SetSolveTime(5.0);
+            job.SetStateValidityCheckingResolution(0.01);
+            //motionPlan.setReportFirstExactSolution(true);
+            job.SetPlannerByString("RRTConnect");
+            job.SetUserData(new VCJobInfo(robot, pythonState));
+            job.OnPlanDone += NotifyController;
+
+            MotionPlanJobExecutor.submit(job);
+
+            /*VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
+            if (resultMotion != null)
+            {
+                IBehavior beh = robot.Component.FindBehavior("MovementFinished");
+                if (beh != null && beh is IStringSignal)
                 {
-                    IBehavior beh = robot.Component.FindBehavior("MovementFinished");
-                    if (beh != null && beh is IStringSignal)
+                    IStringSignal movementFinished = (IStringSignal)robot.Component.FindBehavior("MovementFinished");
+                    movementFinished.Value = ""; // empty string means no payload contained yet
+                    CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", robotParent) as CustomController;
+                    if (sinanController != null)
                     {
-                        IStringSignal movementFinished = (IStringSignal)robot.Component.FindBehavior("MovementFinished");
-                        movementFinished.Value = ""; // empty string means no payload contained yet
-                        CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", robotParent) as CustomController;
-                        if (sinanController != null)
-                        {
-                            sinanController.moveAlongJointAngleList(pythonState, motionPlan);
-                        }
-                        else
-                        {
-                            ms.AppendMessage("Controller not found", MessageLevel.Warning);
-                        }
-                    } else {
-                        ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                        sinanController.moveAlongJointAngleList(pythonState, motionPlan);
                     }
+                    else
+                    {
+                        ms.AppendMessage("Controller not found", MessageLevel.Warning);
+                    }
+                } else {
+                    ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                 }
+            }*/
 
         }
 
-        private void stapleConfig(String stapleComponentName)
+        private void NotifyController(object sender, MotionPlanJobDoneEvent e)
+        {
+            Printer.print(e.Plan.getLastPlanningError());
+            if(e.Job.ResultCode > 0)
+            {
+                VCJobInfo jobinfo = e.Job.GetUserData<VCJobInfo>();
+                IBehavior beh = jobinfo.robot.Component.FindBehavior("MovementFinished");
+                if (beh != null && beh is IStringSignal)
+                {
+                    IStringSignal movementFinished = (IStringSignal)jobinfo.robot.Component.FindBehavior("MovementFinished");
+                    movementFinished.Value = ""; // empty string means no payload contained yet
+                    CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", jobinfo.robot.Component) as CustomController;
+                    if (sinanController != null)
+                    {
+                        sinanController.moveAlongJointAngleList(jobinfo.pythonState, e.Plan);
+                    }
+                    else
+                    {
+                        ms.AppendMessage("Controller not found", MessageLevel.Warning);
+                    }
+                }
+                else
+                {
+                    ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                }
+            }
+        }
+
+        private void stapleConfig(String stapleComponentName, MotionPlanJob job)
         {
             StapleSection parameterStaple = ConfigReader.readStapleConfig();
 
@@ -125,7 +238,7 @@ namespace CustomController
             float translate_z = (float)stackheight.Value;
 
             // setup staple obstacle
-            int obstacleId = motionPlan.addObstacle(obstacleFilePath, translate_x / 1000.0f, translate_y / 1000.0f, translate_z / 1000.0f, 0.0f, 0.0f, 0.0f);
+            job.AddObstacle(obstacleFilePath, translate_x / 1000.0f, translate_y / 1000.0f, translate_z / 1000.0f, 0.0f, 0.0f, 0.0f);
         }
 
     }
