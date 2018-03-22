@@ -110,6 +110,9 @@ namespace CustomController
             return speedTowardsHuman;
         }
 
+
+        /************** VISUALIZATION **************/
+
         /// <summary>
         /// Visualization of Separation Distance. A cylinder feature is added to the robot if not already present.
         /// Initial values are set.
@@ -118,19 +121,18 @@ namespace CustomController
         /// <param name="initialRadius"></param>The initial radius for the cylinder.
         private void VisualizeSeperationDistance(double initialRadius)
         {
-            IRobot robot = manip.robot;
-            if (app.World.FindComponent("SeparationVisualization_" + robot.Name) == null)
+            if (app.World.FindComponent("SeparationVisualization_" + component.Name) == null)
             {
-                ISimComponent component = app.World.CreateComponent("SeparationVisualization_" + robot.Name);
-                component.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
-                ISimNode node = robot.Component.FindNode("mountplate");
+                ISimComponent visualizationComponent = app.World.CreateComponent("SeparationVisualization_" + component.Name);
+                visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
+                ISimNode node = component.FindNode("mountplate");
 
-                Matrix matrix = component.TransformationInReference;
+                Matrix matrix = visualizationComponent.TransformationInReference;
                 matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
 
-                component.TransformationInReference = matrix;
+                visualizationComponent.TransformationInReference = matrix;
 
-                ICylinderFeature seperationVisualization = component.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
+                ICylinderFeature seperationVisualization = visualizationComponent.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
                 // true would remove the top and bottom of the cylinder, but backfaces of the inside of the cylinder are not rendered
                 //seperationVisualization.GetProperty("Caps").Value = false; 
                 seperationVisualization.GetProperty("Height").Value = "1.0";
@@ -147,11 +149,10 @@ namespace CustomController
         /// <param name="robot"></param>The robot for which the update should be made.
         private void UpdateVisualizationDistance()
         {
-            IRobot robot = manip.robot;
             if (useSSM)
             {
-                ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + robot.Name);
-                ISimNode node = robot.Component.FindNode("mountplate");
+                ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
+                ISimNode node = component.FindNode("mountplate");
 
                 Matrix matrix = comp.TransformationInReference;
                 matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));

@@ -48,10 +48,10 @@ namespace CustomController
                     ms.AppendMessage("Too few arguments were passed to StartMovementActionItem. [robotName, startFrameName, goalFrameName, maxAllowedCartesianSpeed, payload, stapleComponentName]", MessageLevel.Warning);
                     return;
                 }
-                ms.AppendMessage("StartMovementActionItem Execute: ", MessageLevel.Warning);
                 String robotName = (String)args.GetByIndex(0).Value;
                 ISimComponent robotParent = app.Value.World.FindComponent(robotName);
                 IRobot robot = robotParent.GetRobot();
+
 
                 String startFrameName = (String)args.GetByIndex(1).Value;
                 String goalFrameName = (String)args.GetByIndex(2).Value;
@@ -59,6 +59,8 @@ namespace CustomController
                 String pythonState = (String)args.GetByIndex(4).Value;
                 String stapleComponentName = (String)args.GetByIndex(5).Value;
 
+
+                Printer.printTimed(robotName + " is planning " + pythonState);
 
                 RobotSection parameter = ConfigReader.readSection(robotName);
             
@@ -140,10 +142,10 @@ namespace CustomController
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(5.0);
+            job.SetSolveTime(2);
             job.SetStateValidityCheckingResolution(0.01);
             //motionPlan.setReportFirstExactSolution(true);
-            job.SetPlannerByString("RRTConnect");
+            job.SetPlannerByString("LazyPRM");
             job.SetUserData(new VCJobInfo(robot, pythonState));
             job.OnPlanDone += NotifyController;
 
@@ -175,29 +177,35 @@ namespace CustomController
 
         private void NotifyController(object sender, MotionPlanJobDoneEvent e)
         {
-            Printer.print(e.Plan.getLastPlanningError());
-            if(e.Job.ResultCode > 0)
+            try
             {
                 VCJobInfo jobinfo = e.Job.GetUserData<VCJobInfo>();
-                IBehavior beh = jobinfo.robot.Component.FindBehavior("MovementFinished");
-                if (beh != null && beh is IStringSignal)
+                Printer.printTimed(jobinfo.robot.Component.Name + " planned Path with: " + e.Plan.getLastPlanningError() + " (" + e.Job.ResultCode.ToString() + ")");
+                if (e.Job.ResultCode > 0)
                 {
-                    IStringSignal movementFinished = (IStringSignal)jobinfo.robot.Component.FindBehavior("MovementFinished");
-                    movementFinished.Value = ""; // empty string means no payload contained yet
-                    CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", jobinfo.robot.Component) as CustomController;
-                    if (sinanController != null)
+                    IBehavior beh = jobinfo.robot.Component.FindBehavior("MovementFinished");
+                    if (beh != null && beh is IStringSignal)
                     {
-                        sinanController.moveAlongJointAngleList(jobinfo.pythonState, e.Plan);
+                        IStringSignal movementFinished = (IStringSignal)jobinfo.robot.Component.FindBehavior("MovementFinished");
+                        movementFinished.Value = ""; // empty string means no payload contained yet
+                        CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", jobinfo.robot.Component) as CustomController;
+                        if (sinanController != null)
+                        {
+                            sinanController.moveAlongJointAngleList(jobinfo.pythonState, e.Plan);
+                        }
+                        else
+                        {
+                            ms.AppendMessage("Controller not found", MessageLevel.Warning);
+                        }
                     }
                     else
                     {
-                        ms.AppendMessage("Controller not found", MessageLevel.Warning);
+                        ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
                 }
-                else
-                {
-                    ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
-                }
+            }
+            catch (Exception ee) {
+                Printer.print(ee.Message + "\n" + ee.StackTrace);
             }
         }
 

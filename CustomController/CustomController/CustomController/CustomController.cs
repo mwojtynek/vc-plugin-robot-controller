@@ -22,45 +22,40 @@ namespace CustomController
     {
         public VisualRobotManipulator manip;
         
+        
+        Vector startJoints;
+        Vector goalJoints;
         Vector deltaJoints;
         double lastSpeed = 400;
 
         private double maximumSpeed = 400;
+        private double demandedSpeed = 1000;
 
-        Vector startJoints;
-        Vector goalJoints;
+        Vector tcpSpeed = new Vector(3);
+
+        private double lastNorm = -1;
 
         bool finished = false;
-        private double demandedSpeed = 1000;
-        
-        private IApplication _app;
-        
-        private bool killed = false;
-
+                
         //private newCustomController controllerWrapper;
         private Permutator p;
 
         private double lastTime;
         private double deltaTime;
-
-
-        private double lastNorm = -1;
-
-
+        
         public String pythonState;
         public List<Vector> resultAngles = new List<Vector>();
         public MotionPlan mp;
         public int pathIndex;
         public bool moving = false;
 
-        Vector tcpSpeed = new Vector(3);
-        
+        Vector joints;
+
         public CustomController(ISimComponent component, IApplication app) : base(component, app)
         {
             try
             {
-                _app = app;
-                this.manip = new VisualRobotManipulator(app, component.Name);
+                this.manip = new VisualRobotManipulator(component);
 
             } catch(Exception e)
             {
@@ -73,14 +68,15 @@ namespace CustomController
             }
             
             app.Simulation.SimulationReset += resetSimulation;
+            app.Simulation.SimulationStarted += (o, e) => { joints = correctJoints(manip.getConfiguration()); };
             IoC.Get<ISimulationService>().PropertyChanged += elapsedCallback;
         }
 
         private void elapsedCallback(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "Elapsed") {
-                this.deltaTime = _app.Simulation.Elapsed - this.lastTime;
-                this.lastTime = _app.Simulation.Elapsed;
+                this.deltaTime = app.Simulation.Elapsed - this.lastTime;
+                this.lastTime = app.Simulation.Elapsed;
                 if (this.deltaTime > 0)
                 {
                     UpdateVisualizationDistance();
@@ -89,13 +85,11 @@ namespace CustomController
             }
         }
         
-        public void moveAlongJointAngleList(string pythonState, MotionPlan motionPlan) //VectorOfDoubleVector vectorOfDoubleVector)
+        public void moveAlongJointAngleList(string pythonState, MotionPlan motionPlan)
         {
-            IoC.Get<IMessageService>().AppendMessage("Starting Motion...", MessageLevel.Warning);
+            Printer.printTimed(component.Name + " starts Motion to " + pythonState);
             this.pythonState = pythonState;
-
-
-
+            
             mp = motionPlan;
             resultAngles.Clear();
             
@@ -106,7 +100,7 @@ namespace CustomController
 
             pathIndex = 0;
 
-            startJoints = correctJoints(manip.getConfiguration());
+            startJoints = joints;//correctJoints(manip.getConfiguration());
             goalJoints = resultAngles[pathIndex];
             while (goalJoints.Equals(startJoints)) {
                 pathIndex++;
@@ -130,9 +124,9 @@ namespace CustomController
             lastNorm = -1;
         }
                 
-        public void kill() {
-            killed = true;
-            _app.Simulation.SimulationReset -= resetSimulation;
+        public new void kill() {
+            base.kill();
+            app.Simulation.SimulationReset -= resetSimulation;
             IoC.Get<ISimulationService>().PropertyChanged -= elapsedCallback;
         }
 
@@ -167,7 +161,7 @@ namespace CustomController
         private void RobotCycle()
         {
             if (
-                killed ||
+                !isAlive ||
                 //controllerWrapper == null ||
                 !moving)
             {
@@ -191,7 +185,7 @@ namespace CustomController
                         IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
                         movementFinished.Value = pythonState; // indicate motion done
                         moving = false;
-                        Printer.print("Finished Motion " + pythonState);
+                        Printer.print(component.Name + " finished Motion: " + pythonState);
 
                         manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex - 1]));
 
@@ -208,8 +202,8 @@ namespace CustomController
                 // Cycle Check entfern: sollte von außerhalb geschehen. Ein Cycle-Aufruf ohne Cycle ist herrlich behindert...
 
                 // aktuelle Joints beziehen (in korrekter Reihenfolge)
-                Vector joints = correctJoints(manip.getConfiguration());
-                
+                joints = correctJoints(manip.getConfiguration());
+
                 // MaxSpeed bestimmen
                 // TODO pure-PTP und SSM-limited PTP unterscheiden!
                 lastSpeed = Math.Min(demandedSpeed, maximumSpeed);
