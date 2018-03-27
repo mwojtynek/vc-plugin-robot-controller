@@ -41,6 +41,9 @@ namespace CustomController
                 this.pythonState = pythonState;
             }
         }
+
+        // to reuse exisiting planners, for increasing their exploration space...
+        SortedDictionary<String, MotionPlanJob> jobBrain = new SortedDictionary<string, MotionPlanJob>();
         public override void Execute(PropertyCollection args)
         {
                 if(args.Count < 6)
@@ -63,8 +66,16 @@ namespace CustomController
                 Printer.printTimed(robotName + " is planning " + pythonState);
 
                 RobotSection parameter = ConfigReader.readSection(robotName);
-            
-                MotionPlanJob job = new MotionPlanJob(parameter.urdfFile.Path, KinStart, KinEnd);
+                MotionPlanJob job;
+                if (!jobBrain.TryGetValue(robotName, out job))
+                {
+                    job = new MotionPlanJob(robotName, parameter.urdfFile.Path, KinStart, KinEnd);
+                    job.OnPlanDone += NotifyController;
+                    jobBrain.Add(robotName, job);
+                } else {
+                    job.ClearObstacles();
+                }
+
                 job.AddObstacle(parameter.obsFile.Path);
 
                 Vector3 wpr = robot.Component.TransformationInWorld.GetWPR();
@@ -134,21 +145,17 @@ namespace CustomController
             goalCartPos.Add(goalRotation.Z);
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
-            // TODO: Allow initial state to be passed when specifying cartesian position
-/*            VectorOfDouble goalJointAngles = description.getIK(goalPosition.GetP().X / 1000,
-                                                                goalPosition.GetP().Y / 1000,
-                                                                goalPosition.GetP().Z / 1000,
-                                                                goalRotation.X, goalRotation.Y, goalRotation.Z, startJointAngles, 0.5, "Distance");*/
+            job.Goal_IK_Mode = "Manip1";
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(60.0);
-            job.SetStateValidityCheckingResolution(0.001);
-            //motionPlan.setReportFirstExactSolution(true);
-            job.SetPlannerByString("RRTConnect");
-            job.SetUserData(new VCJobInfo(robot, pythonState));
-            job.OnPlanDone += NotifyController;
+            job.SetSolveTime(10.0);
+            job.SetStateValidityCheckingResolution(0.01);
 
+            job.SetPlannerByString("LazyPRMstar");
+            
+            job.SetUserData(new VCJobInfo(robot, pythonState));
+            
             MotionPlanJobExecutor.submit(job);
 
             /*VectorOfDoubleVector resultMotion = mpm.planMotion(robot, motionPlan, startFrameName, goalFrameName);
@@ -195,13 +202,16 @@ namespace CustomController
                         }
                         else
                         {
-                            ms.AppendMessage("Controller not found", MessageLevel.Warning);
+                            Printer.printTimed("Error: Controller not found!");
                         }
                     }
                     else
                     {
-                        ms.AppendMessage("\"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
+                        ms.AppendMessage("Error: \"MovementFinished\" behavior was either null or not of type IStringSignal. Abort!", MessageLevel.Warning);
                     }
+                } else {
+                    Printer.printTimed("Error: Failed to find movement! JobInfo: ", MessageLevel.Warning);
+                    Printer.printTimed(e.Job.ToString());
                 }
             }
             catch (Exception ee) {
