@@ -14,8 +14,7 @@ using System.Collections.Generic;
 using Rosi.Components.Sensors.LaserScanner;
 
 namespace CustomController
-{
-
+{ 
     // SSM Part
     // maximumSpeed kontrolliert alles!
 
@@ -81,7 +80,7 @@ namespace CustomController
 
                 double speedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
 
-                separationDistance = separationCalculator.GetSeparationDistance(data.MoveSpeed, speedTowardsHuman)*2;
+                separationDistance = separationCalculator.GetSeparationDistance(data.MoveSpeed, speedTowardsHuman);
                 separationDistance = Math.Max(separationDistance, 300.0);
 
                 double allowedSpeed = speedCalculator.GetAllowedVelocity(BodyPart.Chest, data.MoveSpeed, 1);
@@ -95,7 +94,7 @@ namespace CustomController
         {
             if (manip.robot.Equals(data.Robot))
             {
-                maximumSpeed = demandedSpeed;
+                allowedSpeed = demandedSpeed;
             }
         }
 
@@ -103,13 +102,13 @@ namespace CustomController
         {
             if(distance < separationDistance)
             {
-                maximumSpeed = 0.0;
-            } else if(maximumSpeed != 0.0 && distance < separationDistance * 1.5)
+                this.allowedSpeed = 0.0;
+            } else if(this.allowedSpeed != 0.0 && distance < separationDistance * 1.5)
             {
-                maximumSpeed *= 0.9;
+                this.allowedSpeed *= 0.9;
             } else
             {
-                maximumSpeed = demandedSpeed;
+                this.allowedSpeed = demandedSpeed;
             }
         }
 
@@ -118,6 +117,7 @@ namespace CustomController
             Vector3 positionOffset = humanPosition - robotPosition;
             Vector3 normalizedOffset = positionOffset / positionOffset.Length;
             Vector3 normalizedSpeed = tcpSpeed;
+
             if (tcpSpeed.Length != 0)
             {
                 normalizedSpeed /= tcpSpeed.Length;
@@ -135,7 +135,6 @@ namespace CustomController
             double deltaY = v1.Y - v2.Y;
             return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
         }
-
 
         /************** VISUALIZATION **************/
 
@@ -184,28 +183,25 @@ namespace CustomController
 
             ICylinderFeature speedMonitoredArea =  separationVisualization.CreateFeature<ICylinderFeature>();
             speedMonitoredArea.SetName("speedMonitoredArea", true);
-
-
+            
             SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Height"), 1.0);
             SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Sections"), 36.0);
 
-            IMaterialProperty materialPropertyCool = (IMaterialProperty)speedMonitoredArea.GetProperty("Material");
+            IMaterialProperty materialPropertyCool = (IMaterialProperty )speedMonitoredArea.GetProperty("Material");
             materialPropertyCool.Value = app.FindMaterial("transp_yellow", false);
 
-            IExpressionProperty expressionPropertyCool = (IExpressionProperty)speedMonitoredArea.GetProperty("Radius");
+            IExpressionProperty expressionPropertyCool = (IExpressionProperty) speedMonitoredArea.GetProperty("Radius");
             expressionPropertyCool.Value = "SeparationDistance*CooldownFactor";
         }
 
         public void SetDoubleValueInProperty(IProperty prop, double value)
         {
-            if(prop is IExpressionProperty)
+            if (prop is IExpressionProperty propExpr)
             {
-                IExpressionProperty propExpr = (IExpressionProperty) prop;
-                prop.Value = value + " {mm}";
+                propExpr.Value = value + " {mm}";
             }
-            else if(prop is IDoubleProperty)
+            else if(prop is IDoubleProperty doubleProp)
             {
-                IDoubleProperty doubleProp = (IDoubleProperty)prop;
                 doubleProp.Value = value;
             }
         }

@@ -84,7 +84,7 @@ namespace CustomController
 
         }
 
-        public VectorOfDouble toWeirdVector() {
+        public VectorOfDouble AsVectorOfDouble() {
             VectorOfDouble vec = new VectorOfDouble(Length);
             for (int i = 0; i < Length; i++) {
                 vec.Add(vals[i]);
