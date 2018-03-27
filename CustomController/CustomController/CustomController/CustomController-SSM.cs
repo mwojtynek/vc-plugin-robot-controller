@@ -16,8 +16,6 @@ using Rosi.Components.Sensors.LaserScanner;
 namespace CustomController
 { 
     // SSM Part
-    // maximumSpeed kontrolliert alles!
-
     public partial class CustomController
     {
         private bool useSSM = true;
@@ -75,21 +73,17 @@ namespace CustomController
             IRobot robot = manip.robot;
             if (robot.Equals(data.Robot))
             {
-                Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
-
                 Vector3 relativeTCP = robot.RobotController.ToolCenterPoint.GetP();
                 Vector3 robotPosition = robot.RobotController.RobotWorldNode.TransformationInWorld.GetP();
                 Vector3 tcpPosition = robotPosition + relativeTCP;
-
                 Vector3 humanPosition = data.HumanPosition;
 
-                double speedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
+                Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
+                double robotSpeedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
+                double humanSpeedTowardsRobot = data.MoveSpeed;
 
-                UpdateSeparationDistance(data.MoveSpeed, speedTowardsHuman);
-                double allowedSpeed = speedCalculator.GetAllowedVelocity(BodyPart.Chest, data.MoveSpeed, 1);
-
-                double distance = CalculateDistance2D(tcpPosition, humanPosition);
-                SetSpeed(distance, separationDistance, allowedSpeed);
+                UpdateSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman);
+                UpdateAllowedSpeed(humanSpeedTowardsRobot, tcpPosition, humanPosition);
             }
         }
 
@@ -112,7 +106,7 @@ namespace CustomController
 
             double diff = separationDistance - lastSeparationDistance;
 
-            // Smooth it
+            // TODO Smoothness allowed when separation distance has to grow?
             if(diff > allowedSeparationDistanceChange)
             {
                 separationDistance = lastSeparationDistance + allowedSeparationDistanceChange;
@@ -125,15 +119,28 @@ namespace CustomController
             lastSeparationDistance = separationDistance;
         }
 
-        private void SetSpeed(double distance, double separationDistance, double allowedSpeed)
+        /// <summary>
+        /// Updates allowed speed: Robot gets slowed down, when human is close to the separation distance
+        /// </summary>
+        /// <param name="humanSpeedTowardsRobot"> [mm/s] </param>
+        /// <param name="tcpPosition"></param>
+        /// <param name="humanPosition"></param>
+        private void UpdateAllowedSpeed(double humanSpeedTowardsRobot, Vector3 tcpPosition, Vector3 humanPosition)
         {
-            if(distance < separationDistance)
+            // TODO result from calculation is acutally not used
+            double allowedSpeedDuringTransientContact = speedCalculator.GetAllowedVelocity(BodyPart.Chest, humanSpeedTowardsRobot, 1);
+
+            double distance = CalculateDistance2D(tcpPosition, humanPosition);
+
+            if (distance < separationDistance)
             {
                 this.allowedSpeed = 0.0;
-            } else if(this.allowedSpeed != 0.0 && distance < separationDistance * 1.5)
+            }
+            else if (this.allowedSpeed != 0.0 && distance < separationDistance * 1.5)
             {
                 this.allowedSpeed *= 0.9;
-            } else
+            }
+            else
             {
                 this.allowedSpeed = demandedSpeed;
             }
@@ -214,7 +221,7 @@ namespace CustomController
             SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Height"), 1.0);
             SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Sections"), 36.0);
 
-            IMaterialProperty materialPropertyCool = (IMaterialProperty )speedMonitoredArea.GetProperty("Material");
+            IMaterialProperty materialPropertyCool = (IMaterialProperty) speedMonitoredArea.GetProperty("Material");
             materialPropertyCool.Value = app.FindMaterial("transp_yellow", false);
 
             IExpressionProperty expressionPropertyCool = (IExpressionProperty) speedMonitoredArea.GetProperty("Radius");
