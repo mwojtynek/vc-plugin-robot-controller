@@ -142,10 +142,10 @@ namespace CustomController
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(2);
-            job.SetStateValidityCheckingResolution(0.01);
+            job.SetSolveTime(60.0);
+            job.SetStateValidityCheckingResolution(0.001);
             //motionPlan.setReportFirstExactSolution(true);
-            job.SetPlannerByString("LazyPRM");
+            job.SetPlannerByString("RRTConnect");
             job.SetUserData(new VCJobInfo(robot, pythonState));
             job.OnPlanDone += NotifyController;
 
@@ -191,7 +191,7 @@ namespace CustomController
                         CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", jobinfo.robot.Component) as CustomController;
                         if (sinanController != null)
                         {
-                            sinanController.moveAlongJointAngleList(jobinfo.pythonState, e.Plan);
+                            sinanController.MoveAlongJointAngleList(jobinfo.pythonState, e.Plan);
                         }
                         else
                         {

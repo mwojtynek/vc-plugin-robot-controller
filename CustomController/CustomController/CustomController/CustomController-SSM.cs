@@ -41,7 +41,7 @@ namespace CustomController
         {
             separationCalculator = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);
             speedCalculator = new SpeedCalculator(m_robot, m_payload);
-            VisualizeSeperationDistance(400.0);
+            CreateSeparationDistanceVisualization(400.0);
 
             IList<CollectorClass> scanners = IoC.Get<ICollectorManager>().getInstances("LaserScanner");
 
@@ -73,22 +73,41 @@ namespace CustomController
             {
                 Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
 
-                Vector3 tcpPosition = robot.RobotController.ToolCenterPoint.GetP();
+                Vector3 relativeTCP = robot.RobotController.ToolCenterPoint.GetP();
+                Vector3 robotPosition = robot.RobotController.RobotWorldNode.TransformationInWorld.GetP();
+                Vector3 tcpPosition = robotPosition + relativeTCP;
+
                 Vector3 humanPosition = data.HumanPosition;
 
                 double speedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
 
-                separationDistance = separationCalculator.GetSeparationDistance(data.MoveSpeed, speedTowardsHuman);
+                separationDistance = separationCalculator.GetSeparationDistance(data.MoveSpeed, speedTowardsHuman)*2;
+                separationDistance = Math.Max(separationDistance, 300.0);
+
                 double allowedSpeed = speedCalculator.GetAllowedVelocity(BodyPart.Chest, data.MoveSpeed, 1);
 
-                double distance = (tcpPosition - humanPosition).Length;
-                maximumSpeed = distance < separationDistance ? 0 : allowedSpeed;
+                double distance = CalculateDistance2D(tcpPosition, humanPosition);
+                SetSpeed(distance, separationDistance, allowedSpeed);
             }
         }
 
         public void HumanLost(Object sender, LaserScannerHumanLostEventArgs data)
         {
             if (manip.robot.Equals(data.Robot))
+            {
+                maximumSpeed = demandedSpeed;
+            }
+        }
+
+        private void SetSpeed(double distance, double separationDistance, double allowedSpeed)
+        {
+            if(distance < separationDistance)
+            {
+                maximumSpeed = 0.0;
+            } else if(maximumSpeed != 0.0 && distance < separationDistance * 1.5)
+            {
+                maximumSpeed *= 0.9;
+            } else
             {
                 maximumSpeed = demandedSpeed;
             }
@@ -101,13 +120,20 @@ namespace CustomController
             Vector3 normalizedSpeed = tcpSpeed;
             if (tcpSpeed.Length != 0)
             {
-                normalizedSpeed /=  tcpSpeed.Length;
+                normalizedSpeed /= tcpSpeed.Length;
             }
 
             double vecProduct = Vector3.Dot(normalizedOffset, normalizedSpeed);
             double speedTowardsHuman = vecProduct * tcpSpeed.Length;
 
             return speedTowardsHuman;
+        }
+
+        private double CalculateDistance2D(Vector3 v1, Vector3 v2)
+        {
+            double deltaX = v1.X - v2.X;
+            double deltaY = v1.Y - v2.Y;
+            return Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
         }
 
 
@@ -119,27 +145,68 @@ namespace CustomController
         /// </summary>
         /// <param name="robot"></param>The robot for which the separation distance should be visualized.
         /// <param name="initialRadius"></param>The initial radius for the cylinder.
-        private void VisualizeSeperationDistance(double initialRadius)
+        private void CreateSeparationDistanceVisualization(double initialRadius)
         {
-            if (app.World.FindComponent("SeparationVisualization_" + component.Name) == null)
+            string name = "SeparationVisualization_" + component.Name;
+            ISimComponent visualizationComponent = app.World.FindComponent(name);
+            if (visualizationComponent != null)
             {
-                ISimComponent visualizationComponent = app.World.CreateComponent("SeparationVisualization_" + component.Name);
-                visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
-                ISimNode node = component.FindNode("mountplate");
+                app.World.DeleteComponent(visualizationComponent);
+            }
 
-                Matrix matrix = visualizationComponent.TransformationInReference;
-                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
+            visualizationComponent = app.World.CreateComponent(name);
 
-                visualizationComponent.TransformationInReference = matrix;
+            // Create necessary properties
+            IDoubleProperty separationDistanceProperty = (IDoubleProperty) visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
+            separationDistanceProperty.Value = initialRadius;
 
-                ICylinderFeature seperationVisualization = visualizationComponent.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
-                // true would remove the top and bottom of the cylinder, but backfaces of the inside of the cylinder are not rendered
-                //seperationVisualization.GetProperty("Caps").Value = false; 
-                seperationVisualization.GetProperty("Height").Value = "1.0";
-                seperationVisualization.GetProperty("Sections").Value = "36.0";
-                seperationVisualization.GetProperty("Radius").Value = initialRadius.ToString();
-                seperationVisualization.GetProperty("Material").Value = app.FindMaterial("transp_yellow", false);
-                seperationVisualization.SetName("SeparationVisualization");
+            IDoubleProperty cooldownFactorProperty = (IDoubleProperty) visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "CooldownFactor");
+            cooldownFactorProperty.Value = 1.5;
+
+            // calculate and set position of the separation cylinder
+            ISimNode node = component.FindNode("mountplate");
+            Matrix matrix = visualizationComponent.TransformationInReference;
+            matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
+            visualizationComponent.TransformationInReference = matrix;
+
+            // manipulate properties
+            ICylinderFeature separationVisualization = visualizationComponent.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
+            separationVisualization.SetName("SeparationVisualization");
+
+            SetDoubleValueInProperty(separationVisualization.GetProperty("Height"), 2.0);
+            SetDoubleValueInProperty(separationVisualization.GetProperty("Sections"), 36.0);
+
+            IMaterialProperty materialProperty = (IMaterialProperty) separationVisualization.GetProperty("Material");
+            materialProperty.Value = app.FindMaterial("transp_red", false);
+
+            IExpressionProperty expressionProperty = (IExpressionProperty) separationVisualization.GetProperty("Radius");
+            expressionProperty.Expression = "SeparationDistance";
+
+            ICylinderFeature speedMonitoredArea =  separationVisualization.CreateFeature<ICylinderFeature>();
+            speedMonitoredArea.SetName("speedMonitoredArea", true);
+
+
+            SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Height"), 1.0);
+            SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Sections"), 36.0);
+
+            IMaterialProperty materialPropertyCool = (IMaterialProperty)speedMonitoredArea.GetProperty("Material");
+            materialPropertyCool.Value = app.FindMaterial("transp_yellow", false);
+
+            IExpressionProperty expressionPropertyCool = (IExpressionProperty)speedMonitoredArea.GetProperty("Radius");
+            expressionPropertyCool.Value = "SeparationDistance*CooldownFactor";
+        }
+
+        public void SetDoubleValueInProperty(IProperty prop, double value)
+        {
+            if(prop is IExpressionProperty)
+            {
+                IExpressionProperty propExpr = (IExpressionProperty) prop;
+                prop.Value = value + " {mm}";
+            }
+            else if(prop is IDoubleProperty)
+            {
+                IDoubleProperty doubleProp = (IDoubleProperty)prop;
+                doubleProp.Value = value;
             }
         }
 
@@ -147,34 +214,22 @@ namespace CustomController
         /// Simple function to update the size of the cylinder which visualizes the current separation distance.
         /// </summary>
         /// <param name="robot"></param>The robot for which the update should be made.
-        private void UpdateVisualizationDistance()
+        private void UpdateVisualization()
         {
-            if (useSSM)
+            ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
+            if (useSSM && comp != null)
             {
-                ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
                 ISimNode node = component.FindNode("mountplate");
 
                 Matrix matrix = comp.TransformationInReference;
-                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
+                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 202));
 
                 comp.TransformationInReference = matrix;
 
                 IFeature cylinder = comp.FindFeature("SeparationVisualization");
-                if (separationDistance <= 100.0)
-                {
-                    cylinder.GetProperty("Radius").Value = "100";
-                    comp.GetProperty("SeparationDistance").Value = "100";
-                }
-                else
-                {
-                    cylinder.GetProperty("Radius").Value = separationDistance.ToString();
-                    comp.GetProperty("SeparationDistance").Value = separationDistance;
-                }
+                SetDoubleValueInProperty(comp.GetProperty("SeparationDistance"), separationDistance);
+
                 cylinder.Rebuild();
-            }
-            else
-            {
-                Printer.print("UpdateVisualizationDistance: Failed to find robot component!");
             }
         }
     }

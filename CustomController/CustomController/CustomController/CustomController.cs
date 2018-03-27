@@ -33,7 +33,7 @@ namespace CustomController
 
         Vector tcpSpeed = new Vector(3);
 
-        private double lastNorm = -1;
+        private double lastJointError = -1;
 
         bool finished = false;
                 
@@ -67,25 +67,25 @@ namespace CustomController
                 app.Simulation.SimulationStopped += KillSSM;
             }
             
-            app.Simulation.SimulationReset += resetSimulation;
-            app.Simulation.SimulationStarted += (o, e) => { joints = correctJoints(manip.getConfiguration()); };
-            IoC.Get<ISimulationService>().PropertyChanged += elapsedCallback;
+            app.Simulation.SimulationReset += ResetSimulation;
+            app.Simulation.SimulationStarted += (o, e) => { joints = CorrectJoints(manip.getConfiguration()); };
+            IoC.Get<ISimulationService>().PropertyChanged += ElapsedCallback;
         }
 
-        private void elapsedCallback(object sender, PropertyChangedEventArgs e)
+        private void ElapsedCallback(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "Elapsed") {
                 this.deltaTime = app.Simulation.Elapsed - this.lastTime;
                 this.lastTime = app.Simulation.Elapsed;
                 if (this.deltaTime > 0)
                 {
-                    UpdateVisualizationDistance();
+                    UpdateVisualization();
                     RobotCycle();
                 }
             }
         }
         
-        public void moveAlongJointAngleList(string pythonState, MotionPlan motionPlan)
+        public void MoveAlongJointAngleList(string pythonState, MotionPlan motionPlan)
         {
             Printer.printTimed(component.Name + " starts Motion to " + pythonState);
             this.pythonState = pythonState;
@@ -111,32 +111,41 @@ namespace CustomController
                 }
                 goalJoints = resultAngles[pathIndex];
             }
-            startMotion();
+            StartMotion();
         }
         
-        private void startMotion() {
+        private void StartMotion() {
             deltaJoints = goalJoints - startJoints;
-            deltaJoints.Norm = 1;
+            lastJointError = deltaJoints.Norm;
+
+            if (Math.Abs(deltaJoints.Norm) <= 0.00001)
+            {
+                // if the start and goal position are identical, we are finished
+                finished = true;
+            } else {
+                finished = false;
+                deltaJoints.Norm = 1;
+            }
 
             moving = true;
-            finished = false;
+            // if deltaJoints.Norm ==== 0.0
 
-            lastNorm = -1;
+            //lastJointError = -1;
         }
                 
         public new void kill() {
             base.kill();
-            app.Simulation.SimulationReset -= resetSimulation;
-            IoC.Get<ISimulationService>().PropertyChanged -= elapsedCallback;
+            app.Simulation.SimulationReset -= ResetSimulation;
+            IoC.Get<ISimulationService>().PropertyChanged -= ElapsedCallback;
         }
 
-        private void resetSimulation(object sender, EventArgs e)
+        private void ResetSimulation(object sender, EventArgs e)
         {
             moving = false;
             finished = true;
         }
 
-        private Vector correctJoints(Vector joints)
+        private Vector CorrectJoints(Vector joints)
         {
 
             Vector jointsNew = new Vector(joints.Length);
@@ -147,7 +156,7 @@ namespace CustomController
             return jointsNew;
         }
 
-        private Vector makeJointsShittyAgain(Vector joints) {
+        private Vector MakeJointsShittyAgain(Vector joints) {
             Vector jointsNew = new Vector(joints.Length);
             for (int i = 0; i < joints.Length; i++)
             {
@@ -187,14 +196,14 @@ namespace CustomController
                         moving = false;
                         Printer.print(component.Name + " finished Motion: " + pythonState);
 
-                        manip.setConfiguration(makeJointsShittyAgain(resultAngles[pathIndex - 1]));
+                        manip.setConfiguration(MakeJointsShittyAgain(resultAngles[pathIndex - 1]));
 
                         return;
                     }
                     
-                    startJoints = correctJoints(manip.getConfiguration());
+                    startJoints = CorrectJoints(manip.getConfiguration());
                     goalJoints = resultAngles[pathIndex];
-                    startMotion();
+                    StartMotion();
                     return;
                 }
 
@@ -202,7 +211,7 @@ namespace CustomController
                 // Cycle Check entfern: sollte von außerhalb geschehen. Ein Cycle-Aufruf ohne Cycle ist herrlich behindert...
 
                 // aktuelle Joints beziehen (in korrekter Reihenfolge)
-                joints = correctJoints(manip.getConfiguration());
+                joints = CorrectJoints(manip.getConfiguration());
 
                 // MaxSpeed bestimmen
                 // TODO pure-PTP und SSM-limited PTP unterscheiden!
@@ -242,13 +251,13 @@ namespace CustomController
                 }
                 
                 // Distanz zum Ziel berechnen (in Joint-Space)
-                double dist = (goalJoints - newJoints).Norm;
+                double currentJointError = (goalJoints - newJoints).Norm;
                 
                 // check ob es eine letzte Distanz gibt (mindestens 2. Aufruf)
-                if (lastNorm >= 0)
+                if (lastJointError >= 0)
                 {
                     // check ob Ziel überschritten wird.
-                    if (dist > lastNorm)
+                    if (currentJointError > lastJointError)
                     {
                         // Bewegung beenden und statt zu überschwingen fix auf das Ziel setzen (haben eh unstetige Geschwindigkeiten)
                         finished = true;
@@ -256,7 +265,7 @@ namespace CustomController
                     }
                     
                 }
-                lastNorm = dist;
+                lastJointError = currentJointError;
 
                 tcpSpeed = new Vector(3);
                 MotionPlanRobotDescription.MotionPlanForwardKinematicResult before = mp.getMotionPlanRobotDescription().getFK(joints.toWeirdVector(), true);
@@ -270,7 +279,7 @@ namespace CustomController
                 //Printer.printTimed("Speed: " + tcpSpeed.Norm.ToString() +" (Soll: " + lastSpeed.ToString() + ")");
 
                 // Joints in Visual Components Reihenfolge setzen
-                manip.setConfiguration(makeJointsShittyAgain(newJoints));
+                manip.setConfiguration(MakeJointsShittyAgain(newJoints));
                 
             }
             catch (Exception ee)
