@@ -28,19 +28,24 @@ namespace CustomController
         private double d_intrusion = 160;
         private double s_human = 160;
         private double s_robot = 0.04;
-        SeparationCalculator separationCalculator;
-        private double separationDistance = 100.0;
+        private SeparationCalculator separationCalculator;
+        private double separationDistance;
+        private double lastSeparationDistance;
+        private double minimumSeparationDistance = 300.0;
+        private double allowedSeparationDistanceChange = 10.0;
 
         // Speed Values
         private double m_robot = 30;
         private double m_payload = 0;
-        SpeedCalculator speedCalculator;
+        private SpeedCalculator speedCalculator;
 
         public void InitSSM(Object sender, EventArgs data)
         {
             separationCalculator = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);
             speedCalculator = new SpeedCalculator(m_robot, m_payload);
-            CreateSeparationDistanceVisualization(400.0);
+            separationDistance = minimumSeparationDistance;
+            lastSeparationDistance = minimumSeparationDistance;
+            CreateSeparationDistanceVisualization(separationDistance);
 
             IList<CollectorClass> scanners = IoC.Get<ICollectorManager>().getInstances("LaserScanner");
 
@@ -80,9 +85,7 @@ namespace CustomController
 
                 double speedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
 
-                separationDistance = separationCalculator.GetSeparationDistance(data.MoveSpeed, speedTowardsHuman);
-                separationDistance = Math.Max(separationDistance, 300.0);
-
+                UpdateSeparationDistance(data.MoveSpeed, speedTowardsHuman);
                 double allowedSpeed = speedCalculator.GetAllowedVelocity(BodyPart.Chest, data.MoveSpeed, 1);
 
                 double distance = CalculateDistance2D(tcpPosition, humanPosition);
@@ -96,6 +99,30 @@ namespace CustomController
             {
                 allowedSpeed = demandedSpeed;
             }
+        }
+
+        /// <summary>
+        /// Updates the separation distance and adds smoothness
+        /// </summary>
+        /// <param name="humanSpeedTowardsRobot"> [mm/s] </param>
+        /// <param name="robotSpeedTowardsHuman"> [mm/s] </param>
+        private void UpdateSeparationDistance(double humanSpeedTowardsRobot, double robotSpeedTowardsHuman)
+        {
+            separationDistance = separationCalculator.GetSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman);
+
+            double diff = separationDistance - lastSeparationDistance;
+
+            // Smooth it
+            if(diff > allowedSeparationDistanceChange)
+            {
+                separationDistance = lastSeparationDistance + allowedSeparationDistanceChange;
+            } else if (diff < -allowedSeparationDistanceChange)
+            {
+                separationDistance = lastSeparationDistance - allowedSeparationDistanceChange;
+            }
+
+            separationDistance = Math.Max(separationDistance, minimumSeparationDistance);
+            lastSeparationDistance = separationDistance;
         }
 
         private void SetSpeed(double distance, double separationDistance, double allowedSpeed)
