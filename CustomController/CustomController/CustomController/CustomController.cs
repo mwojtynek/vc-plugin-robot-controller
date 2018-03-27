@@ -143,8 +143,11 @@ namespace CustomController
         public new void kill()
         {
             base.kill();
-            app.Simulation.SimulationReset -= ResetSimulation;
-            IoC.Get<ISimulationService>().PropertyChanged -= ElapsedCallback;
+                  if(app.Simulation != null)
+            {
+                app.Simulation.SimulationReset -= ResetSimulation;
+                IoC.Get<ISimulationService>().PropertyChanged -= ElapsedCallback;
+            }
         }
 
         private void ResetSimulation(object sender, EventArgs e)
