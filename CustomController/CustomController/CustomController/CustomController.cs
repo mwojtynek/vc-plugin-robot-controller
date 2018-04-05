@@ -66,6 +66,8 @@ namespace CustomController
                 app.Simulation.SimulationStopped += KillSSM;
             }
 
+            CreateStatisticsComponent();
+
             app.Simulation.SimulationReset += ResetSimulation;
             app.Simulation.SimulationStarted += (o, e) => { joints = ArrangeJointsToControllerOrder(manip.getConfiguration()); };
             IoC.Get<ISimulationService>().PropertyChanged += ElapsedCallback;
@@ -86,6 +88,7 @@ namespace CustomController
                 if (this.deltaTime > 0)
                 {
                     UpdateVisualization();
+                    UpdateStatisticsComponent();
                     RobotCycle();
                 }
             }

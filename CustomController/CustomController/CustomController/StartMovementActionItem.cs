@@ -145,14 +145,15 @@ namespace CustomController
             goalCartPos.Add(goalRotation.Z);
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
-            job.Goal_IK_Mode = "Manip1";
+            job.Goal_IK_Mode = "Speed";
+            job.IK_Solve_Time = 10.0;
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(10.0);
+            job.SetSolveTime(100.0);
             job.SetStateValidityCheckingResolution(0.01);
 
-            job.SetPlannerByString("LazyPRMstar");
+            job.SetPlannerByString("RRTConnect");
             
             job.SetUserData(new VCJobInfo(robot, pythonState));
             
