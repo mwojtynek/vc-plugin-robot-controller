@@ -29,8 +29,13 @@ namespace CustomController
         private SeparationCalculator separationCalculator;
         private double separationDistance;
         private double lastSeparationDistance;
-        private double minimumSeparationDistance = 300.0;
-        private double allowedSeparationDistanceChange = 10.0;
+        private const double minimumSeparationDistance = 300.0;
+        private const double allowedSeparationDistanceChange = 10.0;
+        private const double cooldownFactor = 1.5;
+
+        // Statistics
+        private double humanDistance = 0.0;
+        private double humanAngle = 0.0;
 
         // Speed Values
         private double m_robot = 30;
@@ -78,6 +83,10 @@ namespace CustomController
                 Vector3 tcpPosition = robotPosition + relativeTCP;
                 Vector3 humanPosition = data.HumanPosition;
 
+                // Update statistics
+                humanDistance = (tcpPosition - humanPosition).Length;
+                humanAngle = data.Angle;
+
                 Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
                 double robotSpeedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
                 double humanSpeedTowardsRobot = data.MoveSpeed;
@@ -102,7 +111,7 @@ namespace CustomController
         /// <param name="robotSpeedTowardsHuman"> [mm/s] </param>
         private void UpdateSeparationDistance(double humanSpeedTowardsRobot, double robotSpeedTowardsHuman)
         {
-            separationDistance = separationCalculator.GetSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman);
+            separationDistance = separationCalculator.GetSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman) * 2.0;
 
             double diff = separationDistance - lastSeparationDistance;
 
@@ -136,7 +145,7 @@ namespace CustomController
             {
                 this.allowedSpeed = 0.0;
             }
-            else if (this.allowedSpeed != 0.0 && distance < separationDistance * 1.5)
+            else if (this.allowedSpeed != 0.0 && distance < separationDistance * cooldownFactor)
             {
                 this.allowedSpeed *= 0.9;
             }
@@ -194,7 +203,7 @@ namespace CustomController
             separationDistanceProperty.Value = initialRadius;
 
             IDoubleProperty cooldownFactorProperty = (IDoubleProperty) visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "CooldownFactor");
-            cooldownFactorProperty.Value = 1.5;
+            cooldownFactorProperty.Value = cooldownFactor;
 
             // calculate and set position of the separation cylinder
             ISimNode node = component.FindNode("mountplate");
@@ -228,22 +237,9 @@ namespace CustomController
             expressionPropertyCool.Value = "SeparationDistance*CooldownFactor";
         }
 
-        public void SetDoubleValueInProperty(IProperty prop, double value)
-        {
-            if (prop is IExpressionProperty propExpr)
-            {
-                propExpr.Value = value + " {mm}";
-            }
-            else if(prop is IDoubleProperty doubleProp)
-            {
-                doubleProp.Value = value;
-            }
-        }
-
         /// <summary>
         /// Simple function to update the size of the cylinder which visualizes the current separation distance.
         /// </summary>
-        /// <param name="robot"></param>The robot for which the update should be made.
         private void UpdateVisualization()
         {
             ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
@@ -260,6 +256,18 @@ namespace CustomController
                 SetDoubleValueInProperty(comp.GetProperty("SeparationDistance"), separationDistance);
 
                 cylinder.Rebuild();
+            }
+        }
+
+        private void SetDoubleValueInProperty(IProperty prop, double value)
+        {
+            if (prop is IExpressionProperty propExpr)
+            {
+                propExpr.Value = value + " {mm}";
+            }
+            else if (prop is IDoubleProperty doubleProp)
+            {
+                doubleProp.Value = value;
             }
         }
     }

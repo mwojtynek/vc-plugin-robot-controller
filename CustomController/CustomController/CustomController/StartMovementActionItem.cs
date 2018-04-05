@@ -148,10 +148,12 @@ namespace CustomController
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
             job.Goal_IK_Mode = "Speed";
+            job.IK_Solve_Time = 10.0;
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(5.0);
+            job.SetSolveTime(10.0);
+
             job.SetStateValidityCheckingResolution(0.01);
 
             job.SetPlannerByString("RRTConnect");

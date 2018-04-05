@@ -71,6 +71,7 @@
     <Compile Include="ConfigClasses.cs" />
     <Compile Include="CustomController-SSM.cs" />
     <Compile Include="CustomController.cs" />
+    <Compile Include="CustomControllerStatistic.cs" />
     <Compile Include="Permutator.cs" />
     <Compile Include="StartMovementActionItem.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
