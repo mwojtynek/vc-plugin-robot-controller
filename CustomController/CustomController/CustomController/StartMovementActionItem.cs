@@ -42,6 +42,7 @@ namespace CustomController
             }
         }
 
+        //SortedDictionary<String, List<MotionPlan>> previousJobResults = new SortedDictionary<string, List<MotionPlan>>();
         // to reuse exisiting planners, for increasing their exploration space...
         SortedDictionary<String, MotionPlanJob> jobBrain = new SortedDictionary<string, MotionPlanJob>();
         public override void Execute(PropertyCollection args)
@@ -75,15 +76,16 @@ namespace CustomController
                 } else {
                     job.ClearObstacles();
                 }
+                int decimals = 8;
 
                 job.AddObstacle(parameter.obsFile.Path);
 
                 Vector3 wpr = robot.Component.TransformationInWorld.GetWPR();
 
-                job.SetRobotTransformation(robot.Component.TransformationInWorld.GetP().X / 1000,
-                                            robot.Component.TransformationInWorld.GetP().Y / 1000,
-                                            robot.Component.TransformationInWorld.GetP().Z / 1000,
-                                            wpr.X, wpr.Y, wpr.Z);
+                job.SetRobotTransformation((robot.Component.TransformationInWorld.GetP().X / 1000.0).Floor(decimals),
+                                            (robot.Component.TransformationInWorld.GetP().Y / 1000.0).Floor(decimals),
+                                            (robot.Component.TransformationInWorld.GetP().Z / 1000.0).Floor(decimals),
+                                            wpr.X.Floor(decimals), wpr.Y.Floor(decimals), wpr.Z.Floor(decimals));
                 
 
             if (stapleComponentName != null && stapleComponentName != "")
@@ -137,12 +139,12 @@ namespace CustomController
             VectorOfDouble startJointAngles = currentPositionJointAngles;
 
             VectorOfDouble goalCartPos = new VectorOfDouble();
-            goalCartPos.Add(goalPosition.GetP().X / 1000);
-            goalCartPos.Add(goalPosition.GetP().Y / 1000);
-            goalCartPos.Add(goalPosition.GetP().Z / 1000);
-            goalCartPos.Add(goalRotation.X);
-            goalCartPos.Add(goalRotation.Y);
-            goalCartPos.Add(goalRotation.Z);
+            goalCartPos.Add((goalPosition.GetP().X / 1000.0).Floor(decimals));
+            goalCartPos.Add((goalPosition.GetP().Y / 1000.0).Floor(decimals));
+            goalCartPos.Add((goalPosition.GetP().Z / 1000.0).Floor(decimals));
+            goalCartPos.Add(goalRotation.X.Floor(decimals));
+            goalCartPos.Add(goalRotation.Y.Floor(decimals));
+            goalCartPos.Add(goalRotation.Z.Floor(decimals));
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
             job.Goal_IK_Mode = "Speed";
@@ -150,7 +152,8 @@ namespace CustomController
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(100.0);
+            job.SetSolveTime(10.0);
+
             job.SetStateValidityCheckingResolution(0.01);
 
             job.SetPlannerByString("RRTConnect");
@@ -188,6 +191,15 @@ namespace CustomController
             try
             {
                 VCJobInfo jobinfo = e.Job.GetUserData<VCJobInfo>();
+                List<MotionPlan> value = null;
+
+/*                if(!previousJobResults.TryGetValue(jobinfo.robot.Component.Name, out value))
+                {
+                    value = new List<MotionPlan>();
+                    previousJobResults.Add(jobinfo.robot.Component.Name, value);
+                }
+                value.Add(e.Plan);*/
+
                 Printer.printTimed(jobinfo.robot.Component.Name + " planned Path with: " + e.Plan.getLastPlanningError() + " (" + e.Job.ResultCode.ToString() + ")");
                 if (e.Job.ResultCode > 0)
                 {
@@ -250,8 +262,8 @@ namespace CustomController
             IDoubleProperty stackwidth = (IDoubleProperty)stapleComponent.GetProperty("StackWidth");
             IDoubleProperty stacklength = (IDoubleProperty)stapleComponent.GetProperty("StackLength");
 
-            float translate_x = (float)staplePosition.X - (float)(stacklength.Value / 2.0);
-            float translate_y = (float)staplePosition.Y - (float)(stackwidth.Value / 2.0);
+            float translate_x = (float)staplePosition.X;// - (float)(stacklength.Value / 2.0);
+            float translate_y = (float)staplePosition.Y;// - (float)(stackwidth.Value / 2.0);
 
             IDoubleProperty stackheight = (IDoubleProperty)stapleComponent.GetProperty("StackHeight");
             float translate_z = (float)stackheight.Value;
