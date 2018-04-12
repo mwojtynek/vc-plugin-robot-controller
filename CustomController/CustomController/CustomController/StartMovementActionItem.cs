@@ -147,8 +147,8 @@ namespace CustomController
             goalCartPos.Add(goalRotation.Z.Floor(decimals));
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
-            job.Goal_IK_Mode = "Speed";
-            job.IK_Solve_Time = 10.0;
+            job.Goal_IK_Mode = "NonCollision";
+            job.IK_Solve_Time = 0.5;
 
             job.SetStartStateFromVector(startJointAngles);
             
