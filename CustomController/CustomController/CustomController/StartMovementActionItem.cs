@@ -147,12 +147,13 @@ namespace CustomController
             goalCartPos.Add(goalRotation.Z.Floor(decimals));
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
-            job.Goal_IK_Mode = "Distance";
-            job.IK_Solve_Time = 1.0;
+
 
             job.SetStartStateFromVector(startJointAngles);
-            
-            job.SetSolveTime(30.0);
+            job.Goal_IK_Mode = "NonCollision";
+            job.IK_Solve_Time = 15.0;
+
+            job.SetSolveTime(15.0);
 
             job.SetStateValidityCheckingResolution(0.001);
 
@@ -193,12 +194,13 @@ namespace CustomController
                 VCJobInfo jobinfo = e.Job.GetUserData<VCJobInfo>();
                 List<MotionPlan> value = null;
 
-/*                if(!previousJobResults.TryGetValue(jobinfo.robot.Component.Name, out value))
-                {
-                    value = new List<MotionPlan>();
-                    previousJobResults.Add(jobinfo.robot.Component.Name, value);
-                }
-                value.Add(e.Plan);*/
+                /*                if(!previousJobResults.TryGetValue(jobinfo.robot.Component.Name, out value))
+                                {
+                                    value = new List<MotionPlan>();
+                                    previousJobResults.Add(jobinfo.robot.Component.Name, value);
+                                }
+                                value.Add(e.Plan);*/
+                if (!jobinfo.robot.IsValid) return;
 
                 Printer.printTimed(jobinfo.robot.Component.Name + " planned Path with: " + e.Plan.getLastPlanningError() + " (" + e.Job.ResultCode.ToString() + ")");
                 if (e.Job.ResultCode > 0)
