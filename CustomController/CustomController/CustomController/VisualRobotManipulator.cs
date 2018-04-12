@@ -31,16 +31,25 @@ namespace CustomController
         public int jointCount {
             get
             {
-                
+                debug();
                 int count = this.robot.RobotController.Joints.Count;
                 
                 return count;
             }
         }
 
+        public void debug()
+        {
+            if (!component.IsValid)
+            {
+                String wah = "";
+            }
+        }
+
         public IRobot robot {
             get
             {
+                debug();
                 
                 IRobot robot = component.GetRobot();
                 if (robot == null) {
@@ -54,7 +63,7 @@ namespace CustomController
 
         public double[] getConfigurationDouble() {
 
-            
+            debug();
             double[] jointVals = new double[jointCount];
             IList<IJoint> joints = this.robot.RobotController.Joints;
             for (int i = 0; i < jointVals.Length; i++) {
@@ -74,8 +83,8 @@ namespace CustomController
 
         public void setConfiguration(double[] joints)
         {
+            debug();
 
-            
             this.robot.RobotController.InvalidateKinChains();
             this.robot.RobotController.SetJointValues(joints);
             

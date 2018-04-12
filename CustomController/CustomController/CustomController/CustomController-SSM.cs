@@ -189,52 +189,56 @@ namespace CustomController
         /// <param name="initialRadius"></param>The initial radius for the cylinder.
         private void CreateSeparationDistanceVisualization(double initialRadius)
         {
-            string name = "SeparationVisualization_" + component.Name;
-            ISimComponent visualizationComponent = app.World.FindComponent(name);
-            if (visualizationComponent != null)
+            try
             {
-                app.World.DeleteComponent(visualizationComponent);
-            }
 
-            visualizationComponent = app.World.CreateComponent(name);
+                string name = "SeparationVisualization_" + component.Name;
+                ISimComponent visualizationComponent = app.World.FindComponent(name);
+                if (visualizationComponent != null)
+                {
+                    app.World.DeleteComponent(visualizationComponent);
+                }
 
-            // Create necessary properties
-            IDoubleProperty separationDistanceProperty = (IDoubleProperty) visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
-            separationDistanceProperty.Value = initialRadius;
+                visualizationComponent = app.World.CreateComponent(name);
 
-            IDoubleProperty cooldownFactorProperty = (IDoubleProperty) visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "CooldownFactor");
-            cooldownFactorProperty.Value = cooldownFactor;
+                // Create necessary properties
+                IDoubleProperty separationDistanceProperty = (IDoubleProperty)visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "SeparationDistance");
+                separationDistanceProperty.Value = initialRadius;
 
-            // calculate and set position of the separation cylinder
-            ISimNode node = component.FindNode("mountplate");
-            Matrix matrix = visualizationComponent.TransformationInReference;
-            matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
-            visualizationComponent.TransformationInReference = matrix;
+                IDoubleProperty cooldownFactorProperty = (IDoubleProperty)visualizationComponent.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "CooldownFactor");
+                cooldownFactorProperty.Value = cooldownFactor;
 
-            // manipulate properties
-            ICylinderFeature separationVisualization = visualizationComponent.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
-            separationVisualization.SetName("SeparationVisualization");
+                // calculate and set position of the separation cylinder
+                ISimNode node = component.FindNode("mountplate");
+                Matrix matrix = visualizationComponent.TransformationInReference;
+                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 201));
+                visualizationComponent.TransformationInReference = matrix;
 
-            SetDoubleValueInProperty(separationVisualization.GetProperty("Height"), 2.0);
-            SetDoubleValueInProperty(separationVisualization.GetProperty("Sections"), 36.0);
+                // manipulate properties
+                ICylinderFeature separationVisualization = visualizationComponent.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
+                separationVisualization.SetName("SeparationVisualization");
 
-            IMaterialProperty materialProperty = (IMaterialProperty) separationVisualization.GetProperty("Material");
-            materialProperty.Value = app.FindMaterial("transp_red", false);
+                SetDoubleValueInProperty(separationVisualization.GetProperty("Height"), 2.0);
+                SetDoubleValueInProperty(separationVisualization.GetProperty("Sections"), 36.0);
 
-            IExpressionProperty expressionProperty = (IExpressionProperty) separationVisualization.GetProperty("Radius");
-            expressionProperty.Expression = "SeparationDistance";
+                IMaterialProperty materialProperty = (IMaterialProperty)separationVisualization.GetProperty("Material");
+                materialProperty.Value = app.FindMaterial("transp_red", false);
 
-            ICylinderFeature speedMonitoredArea =  separationVisualization.CreateFeature<ICylinderFeature>();
-            speedMonitoredArea.SetName("speedMonitoredArea", true);
-            
-            SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Height"), 1.0);
-            SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Sections"), 36.0);
+                IExpressionProperty expressionProperty = (IExpressionProperty)separationVisualization.GetProperty("Radius");
+                expressionProperty.Expression = "SeparationDistance";
 
-            IMaterialProperty materialPropertyCool = (IMaterialProperty) speedMonitoredArea.GetProperty("Material");
-            materialPropertyCool.Value = app.FindMaterial("transp_yellow", false);
+                ICylinderFeature speedMonitoredArea = separationVisualization.CreateFeature<ICylinderFeature>();
+                speedMonitoredArea.SetName("speedMonitoredArea", true);
 
-            IExpressionProperty expressionPropertyCool = (IExpressionProperty) speedMonitoredArea.GetProperty("Radius");
-            expressionPropertyCool.Value = "SeparationDistance*CooldownFactor";
+                SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Height"), 1.0);
+                SetDoubleValueInProperty(speedMonitoredArea.GetProperty("Sections"), 36.0);
+
+                IMaterialProperty materialPropertyCool = (IMaterialProperty)speedMonitoredArea.GetProperty("Material");
+                materialPropertyCool.Value = app.FindMaterial("transp_yellow", false);
+
+                IExpressionProperty expressionPropertyCool = (IExpressionProperty)speedMonitoredArea.GetProperty("Radius");
+                expressionPropertyCool.Value = "SeparationDistance*CooldownFactor";
+            } catch (Exception e){ }
         }
 
         /// <summary>
@@ -242,21 +246,24 @@ namespace CustomController
         /// </summary>
         private void UpdateVisualization()
         {
-            ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
-            if (useSSM && comp != null)
+            try
             {
-                ISimNode node = component.FindNode("mountplate");
+                ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
+                if (useSSM && comp != null)
+                {
+                    ISimNode node = component.FindNode("mountplate");
 
-                Matrix matrix = comp.TransformationInReference;
-                matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 202));
+                    Matrix matrix = comp.TransformationInReference;
+                    matrix.SetP(new Vector3(node.TransformationInWorld.Px, node.TransformationInWorld.Py, 202));
 
-                comp.TransformationInReference = matrix;
+                    comp.TransformationInReference = matrix;
 
-                IFeature cylinder = comp.FindFeature("SeparationVisualization");
-                SetDoubleValueInProperty(comp.GetProperty("SeparationDistance"), separationDistance);
+                    IFeature cylinder = comp.FindFeature("SeparationVisualization");
+                    SetDoubleValueInProperty(comp.GetProperty("SeparationDistance"), separationDistance);
 
-                cylinder.Rebuild();
-            }
+                    cylinder.Rebuild();
+                }
+            } catch (Exception e) { }
         }
 
         private void SetDoubleValueInProperty(IProperty prop, double value)

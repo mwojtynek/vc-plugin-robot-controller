@@ -49,14 +49,8 @@ namespace CustomController
 
         private Vector joints;
 
-        private Matrix robotTransformation;
-        ISimComponent component;
-        List<string> frameNames = new List<string>();
-    Dictionary<string, Matrix> transformationMapping = new Dictionary<string, Matrix>();
-
     public CustomController(ISimComponent component, IApplication app) : base(component, app)
         {
-            this.component = component;
             try
             {
                 this.manip = new VisualRobotManipulator(component);
@@ -66,28 +60,6 @@ namespace CustomController
                 Printer.print(e.StackTrace);
             }
 
-            frameNames.Add("Approach");
-            frameNames.Add("PrinterPick");
-            frameNames.Add("GlueingEnd");
-            frameNames.Add("Glueing_2");
-            frameNames.Add("Glueing_1");
-            frameNames.Add("GlueingStart");
-            frameNames.Add("Candle");
-            frameNames.Add("Place");
-            frameNames.Add("startFrame");
-            frameNames.Add("goalFrame");
-            /*foreach (string frameName in frameNames)
-            {
-                IFrameFeature frame = (IFrameFeature)this.component.FindFeature(frameName);
-                Matrix transformation = Matrix.Identity;
-                if (frame != null)
-                {
-                    transformationMapping.Add(frameName, frame.TransformationInReference);
-                }
-            }*/
-            robotTransformation = this.component.TransformationInWorld;
-            component.TransformationChanged += RobotTransformationChanged;
-
             if (useSSM)
             {
                 app.Simulation.SimulationStarted += InitSSM;
@@ -96,60 +68,21 @@ namespace CustomController
 
             CreateStatisticsComponent();
 
+            app.World.ObjectInvalidated += ObjectInvalidatedHook;
             app.Simulation.SimulationReset += ResetSimulation;
             app.Simulation.SimulationStarted += (o, e) => { joints = ArrangeJointsToControllerOrder(manip.getConfiguration()); };
             IoC.Get<ISimulationService>().PropertyChanged += ElapsedCallback;
-        }
-
-        public void RobotTransformationChanged(object sender, EventArgs e)
-        {
-            Vector3 relP  = this.component.TransformationInWorld.GetP() - robotTransformation.GetP();
-            Vector3 relO = this.component.TransformationInWorld.GetO() - robotTransformation.GetO();
-            Vector3 relQ = this.component.TransformationInWorld.GetQuaternion() - robotTransformation.GetQuaternion();
-            /*Vector3 relA = this.component.TransformationInWorld.GetA() - robotTransformation.GetA();
-            Vector3 relN = this.component.TransformationInWorld.GetN() - robotTransformation.GetN();
-
-
-            foreach (string frameName in frameNames)
-            {
-                IFrameFeature frame = (IFrameFeature)this.component.FindFeature(frameName);
-                if (frame != null)
-                {
-                    Matrix newM = frame.TransformationInReference;
-                    transformationMapping.TryGetValue(frameName, out newM);
-                    //newM.TranslateRelative(-1*this.component.TransformationInWorld.GetP());
-                    frame.TransformationInReference = newM;
-                }
-            }*/
-
-            foreach (string frameName in frameNames)
-            {
-                IFrameFeature frame = (IFrameFeature) this.component.FindFeature(frameName);
-                if(frame != null)
-                {
-                    Matrix frameTransformation = frame.TransformationInWorld;
-            
-                    frameTransformation.TranslateAbs(relP * -1);
-                    frameTransformation.RotateAt(relQ, new Vector3(0, 0, 0));
-            
-                    frame.TransformationInWorld = frameTransformation;
-                    frame.Rebuild();
-                }
-                else
-                {
-                    Printer.printTimed("Failed to find frame: \""+frameName+"\"");
-                }
-            }
-            
-            this.component.Rebuild();
-            this.component.Update();
-            robotTransformation = this.component.TransformationInWorld;
         }
 
         // Destructor
         ~CustomController()
         {
             kill();
+        }
+
+        public void ObjectInvalidatedHook(object sender, EventArgs args)
+        {
+            String wah = "";
         }
 
         private void ElapsedCallback(object sender, PropertyChangedEventArgs e)

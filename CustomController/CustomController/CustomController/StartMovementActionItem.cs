@@ -147,14 +147,14 @@ namespace CustomController
             goalCartPos.Add(goalRotation.Z.Floor(decimals));
             
             job.SetGoalStateAsCartesian(goalCartPos, startJointAngles);
-            job.Goal_IK_Mode = "Speed";
-            job.IK_Solve_Time = 10.0;
+            job.Goal_IK_Mode = "Distance";
+            job.IK_Solve_Time = 1.0;
 
             job.SetStartStateFromVector(startJointAngles);
             
-            job.SetSolveTime(10.0);
+            job.SetSolveTime(30.0);
 
-            job.SetStateValidityCheckingResolution(0.01);
+            job.SetStateValidityCheckingResolution(0.001);
 
             job.SetPlannerByString("RRTConnect");
             
@@ -266,7 +266,8 @@ namespace CustomController
             float translate_y = (float)staplePosition.Y;// - (float)(stackwidth.Value / 2.0);
 
             IDoubleProperty stackheight = (IDoubleProperty)stapleComponent.GetProperty("StackHeight");
-            float translate_z = (float)stackheight.Value;
+            IDoubleProperty paletteHeight = (IDoubleProperty)stapleComponent.GetProperty("PaletteHeight");
+            float translate_z = (float) (stackheight.Value + paletteHeight.Value);
 
             // setup staple obstacle
             job.AddObstacle(obstacleFilePath, translate_x / 1000.0f, translate_y / 1000.0f, translate_z / 1000.0f, 0.0f, 0.0f, 0.0f);
