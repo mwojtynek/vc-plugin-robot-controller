@@ -37,6 +37,7 @@ namespace CustomController
                 sec = new RobotSection();
                 sec.obsFile.Path = "C:\\defaultPath";
                 sec.urdfFile.Path = "C:\\defaultPath2";
+                sec.velocity.Value = "1200.0";
                 config.Sections.Add(name, sec);
                 config.Save();
             }
@@ -70,9 +71,9 @@ namespace CustomController
         }
     }
 
-    public class RobotSection: ConfigurationSection
+    public class RobotSection : ConfigurationSection
     {
-               
+
         [ConfigurationProperty("UrdfFile",
            IsDefaultCollection = true)]
         public UrdfFile urdfFile
@@ -80,7 +81,7 @@ namespace CustomController
             get { return (UrdfFile)base["UrdfFile"]; }
             set { base["UrdfFile"] = value; }
         }
-        
+
         [ConfigurationProperty("ObstacleFile",
            IsDefaultCollection = true)]
         public ObstacleFile obsFile
@@ -88,7 +89,13 @@ namespace CustomController
             get { return (ObstacleFile)base["ObstacleFile"]; }
             set { base["ObstacleFile"] = value; }
         }
-        
+
+        [ConfigurationProperty("Velocity", IsDefaultCollection = true)]
+        public Velocity velocity
+        {
+            get { return (Velocity)base["Velocity"]; }
+            set { base["Velocity"] = value; }
+        }
     }
 
 
@@ -116,7 +123,6 @@ namespace CustomController
         }
     }
 
-
     public sealed class ObstacleFile : ConfigurationElement
     {
         private String _path;
@@ -128,6 +134,15 @@ namespace CustomController
         {
             get { return (string)base["Path"]; }
             set { base["Path"] = value; }
+        }
+    }
+    public sealed class Velocity : ConfigurationElement
+    {
+        [ConfigurationProperty("Value", DefaultValue = "1200.0", IsDefaultCollection = true)]
+        public String Value
+        {
+            get { return (string)base["Value"]; }
+            set { base["Value"] = value; }
         }
     }
 }

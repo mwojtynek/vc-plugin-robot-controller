@@ -49,7 +49,10 @@ namespace CustomController
 
         private Vector joints;
 
-    public CustomController(ISimComponent component, IApplication app) : base(component, app)
+        public double DemandedSpeed { get => demandedSpeed;
+                                      set => demandedSpeed=value; }
+
+        public CustomController(ISimComponent component, IApplication app) : base(component, app)
         {
             try
             {
@@ -70,7 +73,7 @@ namespace CustomController
 
             app.World.ObjectInvalidated += ObjectInvalidatedHook;
             app.Simulation.SimulationReset += ResetSimulation;
-            app.Simulation.SimulationStarted += (o, e) => { joints = ArrangeJointsToControllerOrder(manip.getConfiguration()); };
+            app.Simulation.SimulationStarted += SimulationStarted;
             IoC.Get<ISimulationService>().PropertyChanged += ElapsedCallback;
         }
 
@@ -83,6 +86,11 @@ namespace CustomController
         public void ObjectInvalidatedHook(object sender, EventArgs args)
         {
             String wah = "";
+        }
+
+        public void SimulationStarted(object sender, EventArgs e)
+        {
+            joints = ArrangeJointsToControllerOrder(manip.getConfiguration());
         }
 
         private void ElapsedCallback(object sender, PropertyChangedEventArgs e)
@@ -149,13 +157,15 @@ namespace CustomController
             moving = true;
         }
 
-        public new void kill()
+        public override void kill()
         {
             base.kill();
                   if(app.Simulation != null)
             {
                 app.Simulation.SimulationReset -= ResetSimulation;
+                app.Simulation.SimulationStarted -= SimulationStarted;
                 IoC.Get<ISimulationService>().PropertyChanged -= ElapsedCallback;
+
             }
         }
 

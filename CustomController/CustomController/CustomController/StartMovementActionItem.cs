@@ -76,6 +76,7 @@ namespace CustomController
                 } else {
                     job.ClearObstacles();
                 }
+                job.DemandedSpeed = Double.Parse(parameter.velocity.Value);
                 int decimals = 8;
 
                 job.AddObstacle(parameter.obsFile.Path);
@@ -153,9 +154,9 @@ namespace CustomController
             job.Goal_IK_Mode = "NonCollision";
             job.IK_Solve_Time = 15.0;
 
-            job.SetSolveTime(15.0);
+            job.SetSolveTime(30.0);
 
-            job.SetStateValidityCheckingResolution(0.001);
+            job.SetStateValidityCheckingResolution(0.01);
 
             job.SetPlannerByString("RRTConnect");
             
@@ -213,6 +214,7 @@ namespace CustomController
                         CustomController sinanController = IoC.Get<ICollectorManager>().getInstance("CustomController", jobinfo.robot.Component) as CustomController;
                         if (sinanController != null)
                         {
+                            sinanController.DemandedSpeed = e.Job.DemandedSpeed;
                             sinanController.MoveAlongJointAngleList(jobinfo.pythonState, e.Plan);
                         }
                         else
