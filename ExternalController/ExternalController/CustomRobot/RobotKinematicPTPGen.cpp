@@ -1,10 +1,11 @@
 #include "RobotKinematicPTPGen.h"
 
+#include <kdl\jntarray.hpp>
 
-
-RobotKinematicPTPGen::RobotKinematicPTPGen(int DOF, double cycleTime)
+RobotKinematicPTPGen::RobotKinematicPTPGen(RobotKinematicManager * kinematic, double cycleTime)
 {
-	this->DOF = DOF;
+	this->kinematic = kinematic;
+	int DOF = this->kinematic->getDOF();
 
 	this->RML = new ReflexxesAPI(DOF,cycleTime);
 	this->IP = new RMLPositionInputParameters(DOF);
@@ -23,10 +24,9 @@ RobotKinematicPTPGen::~RobotKinematicPTPGen()
 int RobotKinematicPTPGen::init(KDL::JntArrayAcc *start, Task *task)
 {
 
+	KDL::JntArray target = task->target->getConfig(this->kinematic);
 
-	double * target = new double[task->target->getDof()];
-	task->target->getConfig(target);
-	for (int i = 0; i < this->DOF; i++) {
+	for (int i = 0; i < this->kinematic->getDOF(); i++) {
 		IP->CurrentPositionVector->VecData[i] = (start->q)(i);
 		IP->CurrentVelocityVector->VecData[i] = (start->qdot)(i);
 		IP->CurrentAccelerationVector->VecData[i] = (start->qdotdot)(i);
@@ -35,13 +35,11 @@ int RobotKinematicPTPGen::init(KDL::JntArrayAcc *start, Task *task)
 		IP->MaxAccelerationVector->VecData[i] = 1.0;
 		IP->MaxJerkVector->VecData[i] = 1.0;
 
-		IP->TargetPositionVector->VecData[i] = target[i];
+		IP->TargetPositionVector->VecData[i] = target(i);
 		IP->TargetVelocityVector->VecData[i] = 0.0;
 		
 		IP->SelectionVector->VecData[i] = true;
 	}
-	delete[] target;
-
 	if (IP->CheckForValidity()) {
 		return 0;
 	}
@@ -57,6 +55,8 @@ int RobotKinematicPTPGen::nextCycle(KDL::JntArrayAcc *nextVector)
 	*IP->CurrentPositionVector = *OP->NewPositionVector;
 	*IP->CurrentVelocityVector = *OP->NewVelocityVector;
 	*IP->CurrentAccelerationVector = *OP->NewAccelerationVector;
+
+	int DOF = this->kinematic->getDOF();
 
 	memcpy(nextVector->q.data.data(), OP->NewPositionVector->VecData, DOF * sizeof(double));
 	memcpy(nextVector->qdot.data.data(), OP->NewVelocityVector->VecData, DOF * sizeof(double));

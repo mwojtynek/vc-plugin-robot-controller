@@ -29,7 +29,12 @@ RobotKinematicManager::RobotKinematicManager(std::string urdf_path)
 	}
 
 	fkpos_solver = new ChainFkSolverPos_recursive(this->chain);
-	ikpos_solver = new ChainIkSolverPos_LMA(this->chain);
+	
+	// macht, dass das +/- immerhin funktioniert. genaue Funktion immernoch nicht verstanden aber es laeuft; so who cares? \_(^,^)_/
+	Eigen::Matrix< double, 6, 1 > mat;
+	mat << 1, 1, 0, 0, 0, 1;
+
+	ikpos_solver = new ChainIkSolverPos_LMA(this->chain, mat);
 	defaultGuess = JntArray(this->chain.getNrOfJoints());
 
 }

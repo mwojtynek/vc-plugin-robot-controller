@@ -37,16 +37,7 @@ int RobotKinematicLINGen::init(KDL::JntArrayAcc * start, Task *task)
 	}
 
 	//KDL::Frame target = task->target->getFrame();
-
-	double joints[2];
-	task->target->getConfig(joints);
-	KDL::JntArray arr(2);
-	for (int i = 0; i < 2; i++) {
-		arr(i) = joints[i];
-	}
-
-	KDL::Frame target;
-	this->kinematic->FK(&arr, &target);
+	KDL::Frame target = task->target->getFrame(this->kinematic);
 
 	KDL::Frame frame;
 	this->kinematic->FK(&start->q, &frame);
@@ -68,9 +59,9 @@ int RobotKinematicLINGen::init(KDL::JntArrayAcc * start, Task *task)
 		IP->CurrentVelocityVector->VecData[i] = 0; //aus KDL
 		IP->CurrentAccelerationVector->VecData[i] = 0; // aus KDL
 
-		IP->MaxVelocityVector->VecData[i] = 3; // aus TASK oder BSP
-		IP->MaxAccelerationVector->VecData[i] = 0.01; //aus TASK oder BSP
-		IP->MaxJerkVector->VecData[i] = 1.0;	//aus TASK oder BSP
+		IP->MaxVelocityVector->VecData[i] = 0.5; // aus TASK oder BSP
+		IP->MaxAccelerationVector->VecData[i] = 1.5; //aus TASK oder BSP
+		IP->MaxJerkVector->VecData[i] = 10.0;	//aus TASK oder BSP
 
 		if (i < 3) {
 			IP->TargetPositionVector->VecData[i] = target.p(i); 

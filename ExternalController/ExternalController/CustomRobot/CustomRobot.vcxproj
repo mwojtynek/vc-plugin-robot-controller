@@ -26,10 +26,12 @@
     <ClCompile Include="RobotKinematicManager.cpp" />
     <ClCompile Include="RobotKinematicPTPGen.cpp" />
     <ClCompile Include="RobotMotionManager.cpp" />
+    <ClCompile Include="StaticRobotWrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Conversions.h" />
     <ClInclude Include="CSERobot.h" />
+    <ClInclude Include="StaticRobotWrapper.h" />
     <ClInclude Include="Position.h" />
     <ClInclude Include="RobotKinematicLINGen.h" />
     <ClInclude Include="RobotKinematicManager.h" />

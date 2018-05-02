@@ -36,6 +36,9 @@
     <ClCompile Include="RobotKinematicLINGen.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
+    <ClCompile Include="StaticRobotWrapper.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Conversions.h">
@@ -60,6 +63,9 @@
       <Filter>Headerdateien</Filter>
     </ClInclude>
     <ClInclude Include="RobotKinematicLINGen.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
+    <ClInclude Include="StaticRobotWrapper.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
   </ItemGroup>

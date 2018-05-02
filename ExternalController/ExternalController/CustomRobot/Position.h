@@ -1,6 +1,9 @@
 #pragma once
 
 #include <kdl\frames.hpp>
+#include <kdl\jntarray.hpp>
+
+#include "RobotKinematicManager.h"
 
 enum PositionType {FRAME, CONFIGURATION};
 
@@ -11,20 +14,14 @@ private:
 	// Aufbau Frame und Configuration
 	union {
 		KDL::Frame frame;
-		struct {
-			double * joints;
-			int DOF;
-		} configuration;
-
+		KDL::JntArray configuration;
 	};
 public:
 	Position(KDL::Frame frame);
-	Position(double * joints, int jointCount);
+	Position(KDL::JntArray joints);
 	~Position();
 
-	void getConfig(double * config);
-	int getDof();
-
-	KDL::Frame getFrame();
+	KDL::JntArray getConfig(RobotKinematicManager *kin = NULL, const KDL::JntArray *guess = NULL);
+	KDL::Frame getFrame(RobotKinematicManager *kin = NULL);
 };
 

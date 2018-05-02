@@ -1,50 +1,52 @@
 #include "Position.h"
 
-#include <string.h>
-
-
 Position::Position(KDL::Frame frame)
 {
-	type = PositionType::FRAME;
+	this->type = PositionType::FRAME;
 	this->frame = frame;
 }
 
-Position::Position(double * joints, int jointCount)
+Position::Position(KDL::JntArray joints)
 {
-	type = PositionType::CONFIGURATION;
-	this->configuration.DOF = jointCount;
-	this->configuration.joints = new double[jointCount];
-	memcpy(this->configuration.joints, joints, jointCount * sizeof(double));
+	this->type = PositionType::CONFIGURATION;
+	this->configuration = joints;
 }
 
 Position::~Position()
 {
-	if (type == PositionType::CONFIGURATION) {
-		delete[] this->configuration.joints;
-	}
+
 }
 
-void Position::getConfig(double * config)
+KDL::JntArray Position::getConfig(RobotKinematicManager *kin, const KDL::JntArray *guess)
 {
-	if (type == PositionType::FRAME) {
-		throw - 1;
+	if (this->type == PositionType::FRAME) {
+		if (kin == NULL) {
+			throw - 1;
+		}
+		else {
+
+			KDL::JntArray newArray(kin->getDOF());
+			kin->IK(&this->frame, guess, &newArray);
+
+			return newArray;
+		}
 	}
 
-	memcpy(config, this->configuration.joints, this->configuration.DOF * sizeof(double));
+	return this->configuration;
 }
 
-int Position::getDof()
+KDL::Frame Position::getFrame(RobotKinematicManager *kin)
 {
-	if (type == PositionType::FRAME) {
-		throw - 1;
+	if (this->type == PositionType::CONFIGURATION) {
+		if (kin == NULL) {
+			throw - 1;
+		}
+		else {
+			KDL::Frame newFrame;
+			kin->FK(&this->configuration, &newFrame);
+			return newFrame;
+		}
 	}
-	return this->configuration.DOF;
-}
 
-KDL::Frame Position::getFrame()
-{
-	if (PositionType::CONFIGURATION) {
-		throw - 1;
-	}
 	return this->frame;
 }

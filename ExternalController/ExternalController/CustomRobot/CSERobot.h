@@ -36,6 +36,7 @@ public:
 	int FK(const double * joints, double * frame);
 	int SpeedFK(const double * joints, const double * jointsDot, double * twist);
 		
-	int IK(const double * frame, double * joints);
+	int IK(const double * frame, double * joints, const double * guess = NULL);
 
+	int getDOF();
 };

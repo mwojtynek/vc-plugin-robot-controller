@@ -9,6 +9,7 @@
 #include <RMLPositionOutputParameters.h>
 
 #include "Task.h"
+#include "RobotKinematicManager.h"
 
 #include <kdl\jntarrayacc.hpp>
 
@@ -17,7 +18,7 @@ class RobotKinematicPTPGen
 {
 private:
 
-	int DOF;
+	RobotKinematicManager * kinematic;
 
 	ReflexxesAPI                *RML;
 	RMLPositionInputParameters  *IP;
@@ -25,7 +26,7 @@ private:
 	RMLPositionFlags            *Flags;
 
 public:
-	RobotKinematicPTPGen(int DOF, double cycleTime);
+	RobotKinematicPTPGen(RobotKinematicManager * kinematic, double cycleTime);
 	~RobotKinematicPTPGen();
 
 	int init(KDL::JntArrayAcc *startState, Task *task);

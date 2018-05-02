@@ -1,11 +1,12 @@
 #include "RobotMotionManager.h"
 
+#include "Conversions.h"
 
 
 RobotMotionManager::RobotMotionManager(RobotKinematicManager *kinematic, double cycleTime) : state(kinematic->getDOF())
 {
 	this->kinematic = kinematic;
-	this->ptp = new RobotKinematicPTPGen(this->state.q.rows(), cycleTime);
+	this->ptp = new RobotKinematicPTPGen(kinematic, cycleTime);
 	this->lin = new RobotKinematicLINGen(kinematic, cycleTime);
 		
 	currentTask = NULL;
@@ -57,15 +58,30 @@ int RobotMotionManager::nextCycle(KDL::JntArrayAcc * newState)
 
 		if (interpolatorReturn == ReflexxesAPI::RML_FINAL_STATE_REACHED) {
 			cycleReturn |= 4;
+			delete currentTask->target;
 			delete currentTask;
 			currentTask = NULL;
+
+			KDL::Frame frame;
+			double rpy[6];
+			this->kinematic->FK(& this->state.q, &frame);
+			frameToRPY(rpy, &frame);
+			for (int i = 0; i < 6; i++) {
+				if (i > 2) {
+					printf("%f ", r2d(rpy[i]));
+				}
+				else {
+					printf("%f ", rpy[i]);
+				}
+			}
+			printf("finished\n");
 		}
 		else if (interpolatorReturn != ReflexxesAPI::RML_WORKING) {
 			cycleReturn |= 1;
 		}
 	}
 	
-	*newState = state;
+	*newState = this->state;
 
 	return cycleReturn;
 }
