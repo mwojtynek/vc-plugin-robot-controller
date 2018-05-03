@@ -104,7 +104,6 @@ namespace CustomController
 
         public void MoveAlongJointAngleList(string pythonState, MotionPlan motionPlan)
         {
-            Printer.printTimed(component.Name + " starts Motion to " + pythonState);
             this.pythonState = pythonState;
 
             mp = motionPlan;
@@ -208,7 +207,7 @@ namespace CustomController
                         IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
                         movementFinished.Value = pythonState; // indicate motion done
                         moving = false;
-                        Printer.print(component.Name + " finished Motion: " + pythonState);
+                        //Printer.print(component.Name + " finished Motion: " + pythonState);
 
                         manip.setConfiguration(ArrangeJointsToVisualComponentsOrder(resultAngles[pathIndex - 1]));
                         return;
