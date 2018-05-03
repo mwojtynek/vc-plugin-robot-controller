@@ -42,6 +42,8 @@ namespace CustomController
         private double m_payload = 0;
         private SpeedCalculator speedCalculator;
 
+        Vector3 humanPosition = new Vector3(0,0,0);
+
         public void InitSSM(Object sender, EventArgs data)
         {
             separationCalculator = new SeparationCalculator(t_reaction, t_robot_stop, d_intrusion, s_human, s_robot);
@@ -79,12 +81,11 @@ namespace CustomController
             if (robot.Equals(data.Robot))
             {
                 Vector3 relativeTCP = robot.RobotController.ToolCenterPoint.GetP();
-                Vector3 robotPosition = robot.RobotController.RobotWorldNode.TransformationInWorld.GetP();
-                Vector3 tcpPosition = robotPosition + relativeTCP;
-                Vector3 humanPosition = data.HumanPosition;
+                Vector3 tcpPosition = (robot.RobotController.RobotWorldNode.TransformationInWorld * robot.RobotController.ToolCenterPoint).GetP();
+                humanPosition = data.HumanPosition;
 
                 // Update statistics
-                humanDistance = (tcpPosition - humanPosition).Length;
+                humanDistance = CalculateDistance2D(tcpPosition, humanPosition);
                 humanAngle = data.Angle;
 
                 Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
@@ -92,7 +93,7 @@ namespace CustomController
                 double humanSpeedTowardsRobot = data.MoveSpeed;
 
                 UpdateSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman);
-                UpdateAllowedSpeed(humanSpeedTowardsRobot, tcpPosition, humanPosition);
+                UpdateAllowedSpeed(humanSpeedTowardsRobot);
             }
         }
 
@@ -112,7 +113,6 @@ namespace CustomController
         private void UpdateSeparationDistance(double humanSpeedTowardsRobot, double robotSpeedTowardsHuman)
         {
             separationDistance = separationCalculator.GetSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman) * 2.0;
-
             double diff = separationDistance - lastSeparationDistance;
 
             // TODO Smoothness allowed when separation distance has to grow?
@@ -134,18 +134,16 @@ namespace CustomController
         /// <param name="humanSpeedTowardsRobot"> [mm/s] </param>
         /// <param name="tcpPosition"></param>
         /// <param name="humanPosition"></param>
-        private void UpdateAllowedSpeed(double humanSpeedTowardsRobot, Vector3 tcpPosition, Vector3 humanPosition)
+        private void UpdateAllowedSpeed(double humanSpeedTowardsRobot)
         {
             // TODO result from calculation is acutally not used
             double allowedSpeedDuringTransientContact = speedCalculator.GetAllowedVelocity(BodyPart.Chest, humanSpeedTowardsRobot, 1);
 
-            double distance = CalculateDistance2D(tcpPosition, humanPosition);
-
-            if (distance < separationDistance)
+            if (humanDistance < separationDistance)
             {
                 this.allowedSpeed = 0.0;
             }
-            else if (this.allowedSpeed != 0.0 && distance < separationDistance * cooldownFactor)
+            else if (this.allowedSpeed != 0.0 && humanDistance < separationDistance * cooldownFactor)
             {
                 this.allowedSpeed *= 0.9;
             }
@@ -191,7 +189,6 @@ namespace CustomController
         {
             try
             {
-
                 string name = "SeparationVisualization_" + component.Name;
                 ISimComponent visualizationComponent = app.World.FindComponent(name);
                 if (visualizationComponent != null)

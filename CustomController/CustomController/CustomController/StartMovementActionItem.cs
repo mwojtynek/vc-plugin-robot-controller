@@ -62,8 +62,7 @@ namespace CustomController
                 int maxAllowedCartesianSpeed = (int)args.GetByIndex(3).Value;
                 String pythonState = (String)args.GetByIndex(4).Value;
                 String stapleComponentName = (String)args.GetByIndex(5).Value;
-
-
+                
                 Printer.printTimed(robotName + " is planning " + pythonState);
 
                 RobotSection parameter = ConfigReader.readSection(robotName);
@@ -76,6 +75,7 @@ namespace CustomController
                 } else {
                     job.ClearObstacles();
                 }
+
                 job.DemandedSpeed = Double.Parse(parameter.velocity.Value);
                 int decimals = 8;
 
