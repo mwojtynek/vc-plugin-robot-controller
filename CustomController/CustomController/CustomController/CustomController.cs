@@ -71,7 +71,6 @@ namespace CustomController
 
             CreateStatisticsComponent();
 
-            app.World.ObjectInvalidated += ObjectInvalidatedHook;
             app.Simulation.SimulationReset += ResetSimulation;
             app.Simulation.SimulationStarted += SimulationStarted;
             IoC.Get<ISimulationService>().PropertyChanged += ElapsedCallback;
@@ -82,12 +81,7 @@ namespace CustomController
         {
             kill();
         }
-
-        public void ObjectInvalidatedHook(object sender, EventArgs args)
-        {
-            String wah = "";
-        }
-
+        
         public void SimulationStarted(object sender, EventArgs e)
         {
             joints = ArrangeJointsToControllerOrder(manip.getConfiguration());
@@ -160,7 +154,7 @@ namespace CustomController
         public override void kill()
         {
             base.kill();
-                  if(app.Simulation != null)
+            if(app.Simulation != null)
             {
                 app.Simulation.SimulationReset -= ResetSimulation;
                 app.Simulation.SimulationStarted -= SimulationStarted;
