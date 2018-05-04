@@ -13,21 +13,23 @@
 #include "RobotKinematicManager.h"
 #include <kdl\jntarrayacc.hpp>
 
-class RobotKinematicLINGen
-{
-private:
-	
-	ReflexxesAPI                *RML;
-	RMLPositionInputParameters  *IP;
-	RMLPositionOutputParameters *OP;
-	RMLPositionFlags            *Flags;
+namespace CSEController {
+	class RobotKinematicLINGen
+	{
+	private:
 
-	RobotKinematicManager * kinematic;
+		ReflexxesAPI * RML;
+		RMLPositionInputParameters  *IP;
+		RMLPositionOutputParameters *OP;
+		RMLPositionFlags            *Flags;
 
-public:
-	RobotKinematicLINGen(RobotKinematicManager * kinematic, double cycleTime);
-	~RobotKinematicLINGen();
+		RobotKinematicManager * kinematic;
 
-	int init(KDL::JntArrayAcc *startState, Task *task);
-	int nextCycle(KDL::JntArrayAcc *nextState);
-};
+	public:
+		RobotKinematicLINGen(RobotKinematicManager * kinematic, double cycleTime);
+		~RobotKinematicLINGen();
+
+		int init(KDL::JntArrayAcc *startState, Task *task);
+		int nextCycle(KDL::JntArrayAcc *nextState);
+	};
+}

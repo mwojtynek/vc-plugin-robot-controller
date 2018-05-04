@@ -2,6 +2,8 @@
 
 #include <kdl\jntarray.hpp>
 
+using namespace CSEController;
+
 RobotKinematicPTPGen::RobotKinematicPTPGen(RobotKinematicManager * kinematic, double cycleTime)
 {
 	this->kinematic = kinematic;
