@@ -71,7 +71,6 @@ namespace CustomController
 
             CreateStatisticsComponent();
 
-            app.World.ObjectInvalidated += ObjectInvalidatedHook;
             app.Simulation.SimulationReset += ResetSimulation;
             app.Simulation.SimulationStarted += SimulationStarted;
             IoC.Get<ISimulationService>().PropertyChanged += ElapsedCallback;
@@ -82,12 +81,7 @@ namespace CustomController
         {
             kill();
         }
-
-        public void ObjectInvalidatedHook(object sender, EventArgs args)
-        {
-            String wah = "";
-        }
-
+        
         public void SimulationStarted(object sender, EventArgs e)
         {
             joints = ArrangeJointsToControllerOrder(manip.getConfiguration());
@@ -110,7 +104,6 @@ namespace CustomController
 
         public void MoveAlongJointAngleList(string pythonState, MotionPlan motionPlan)
         {
-            Printer.printTimed(component.Name + " starts Motion to " + pythonState);
             this.pythonState = pythonState;
 
             mp = motionPlan;
@@ -160,7 +153,7 @@ namespace CustomController
         public override void kill()
         {
             base.kill();
-                  if(app.Simulation != null)
+            if(app.Simulation != null)
             {
                 app.Simulation.SimulationReset -= ResetSimulation;
                 app.Simulation.SimulationStarted -= SimulationStarted;
@@ -214,7 +207,7 @@ namespace CustomController
                         IStringSignal movementFinished = (IStringSignal)manip.component.FindBehavior("MovementFinished");
                         movementFinished.Value = pythonState; // indicate motion done
                         moving = false;
-                        Printer.print(component.Name + " finished Motion: " + pythonState);
+                        //Printer.print(component.Name + " finished Motion: " + pythonState);
 
                         manip.setConfiguration(ArrangeJointsToVisualComponentsOrder(resultAngles[pathIndex - 1]));
                         return;

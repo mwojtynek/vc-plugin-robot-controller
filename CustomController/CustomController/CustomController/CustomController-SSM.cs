@@ -32,15 +32,17 @@ namespace CustomController
         private const double minimumSeparationDistance = 300.0;
         private const double allowedSeparationDistanceChange = 10.0;
         private const double cooldownFactor = 1.5;
-
+        
         // Statistics
         private double humanDistance = 0.0;
         private double humanAngle = 0.0;
-
+        
         // Speed Values
         private double m_robot = 30;
         private double m_payload = 0;
         private SpeedCalculator speedCalculator;
+
+        Vector3 humanPosition = new Vector3(0,0,0);
 
         public void InitSSM(Object sender, EventArgs data)
         {
@@ -79,20 +81,19 @@ namespace CustomController
             if (robot.Equals(data.Robot))
             {
                 Vector3 relativeTCP = robot.RobotController.ToolCenterPoint.GetP();
-                Vector3 robotPosition = robot.RobotController.RobotWorldNode.TransformationInWorld.GetP();
-                Vector3 tcpPosition = robotPosition + relativeTCP;
-                Vector3 humanPosition = data.HumanPosition;
+                Vector3 tcpPosition = (robot.RobotController.RobotWorldNode.TransformationInWorld * robot.RobotController.ToolCenterPoint).GetP();
+                humanPosition = data.HumanPosition;
 
                 // Update statistics
-                humanDistance = (tcpPosition - humanPosition).Length;
+                humanDistance = CalculateDistance2D(tcpPosition, humanPosition);
                 humanAngle = data.Angle;
-
+                
                 Vector3 tcpSpeedAsVector3 = new Vector3(tcpSpeed[0], tcpSpeed[1], tcpSpeed[2]);
                 double robotSpeedTowardsHuman = CalculateSpeedTowardsHuman(tcpSpeedAsVector3, tcpPosition, humanPosition);
                 double humanSpeedTowardsRobot = data.MoveSpeed;
 
-                UpdateSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman);
-                UpdateAllowedSpeed(humanSpeedTowardsRobot, tcpPosition, humanPosition);
+                UpdateSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman, humanPosition);
+                UpdateAllowedSpeed(humanSpeedTowardsRobot);
             }
         }
 
@@ -101,6 +102,12 @@ namespace CustomController
             if (manip.robot.Equals(data.Robot))
             {
                 allowedSpeed = demandedSpeed;
+
+                string humanConeName = "SeparationVisualization_HumanCone_" + component.Name;
+                ISimComponent humanVisualizationComponent = app.World.FindComponent(humanConeName);
+                if(humanVisualizationComponent != null)
+                    humanVisualizationComponent.IsVisible = false;
+                humanVisualizationComponent.Rebuild();
             }
         }
 
@@ -109,10 +116,9 @@ namespace CustomController
         /// </summary>
         /// <param name="humanSpeedTowardsRobot"> [mm/s] </param>
         /// <param name="robotSpeedTowardsHuman"> [mm/s] </param>
-        private void UpdateSeparationDistance(double humanSpeedTowardsRobot, double robotSpeedTowardsHuman)
+        private void UpdateSeparationDistance(double humanSpeedTowardsRobot, double robotSpeedTowardsHuman, Vector3 humanPosition)
         {
             separationDistance = separationCalculator.GetSeparationDistance(humanSpeedTowardsRobot, robotSpeedTowardsHuman) * 2.0;
-
             double diff = separationDistance - lastSeparationDistance;
 
             // TODO Smoothness allowed when separation distance has to grow?
@@ -126,6 +132,55 @@ namespace CustomController
 
             separationDistance = Math.Max(separationDistance, minimumSeparationDistance);
             lastSeparationDistance = separationDistance;
+
+
+            string humanConeName = "SeparationVisualization_HumanCone_" + component.Name;
+            ISimComponent humanVisualizationComponent = app.World.FindComponent(humanConeName);
+            if (humanVisualizationComponent != null)
+            {
+                Matrix tir = humanVisualizationComponent.TransformationInReference;
+                if (humanSpeedTowardsRobot < 0)
+                {
+                    tir.SetWPR(new Vector3(90, 0, -90 + humanAngle * (180.0 / Math.PI)));
+                }
+                else
+                {
+                    tir.SetWPR(new Vector3(90, 0, 180 + -90 + humanAngle * (180.0 / Math.PI)));
+                }
+                tir.SetP(humanPosition);
+                tir.TranslateAbs(new Vector3(0, 0, 250));
+
+                humanVisualizationComponent.TransformationInReference = tir;
+
+                SetDoubleValueInProperty(humanVisualizationComponent.GetProperty("ArrowLength"), Math.Abs(humanSpeedTowardsRobot));
+                humanVisualizationComponent.IsVisible = (humanSpeedTowardsRobot != 0);
+                humanVisualizationComponent.Rebuild();
+            }
+
+            ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
+            if(comp != null)
+            {
+                string robotConeName = "SeparationVisualization_RobotCone_" + component.Name;
+                IFeature robotVisualizationComponent = (IFeature)comp.FindFeature(robotConeName);
+                if (robotVisualizationComponent != null)
+                {
+                    Matrix tir = robotVisualizationComponent.TransformationInReference;
+                    if (robotSpeedTowardsHuman < 0)
+                    {
+                        tir.SetWPR(new Vector3(90, 0, 90 + humanAngle * (180.0 / Math.PI)));
+                    }
+                    else
+                    {
+                        tir.SetWPR(new Vector3(90, 0, -90 + humanAngle * (180.0 / Math.PI)));
+                    }
+                    robotVisualizationComponent.TransformationInReference = tir;
+
+                    SetDoubleValueInProperty(comp.GetProperty("ArrowLength"), Math.Abs(robotSpeedTowardsHuman));
+                    robotVisualizationComponent.IsVisible = (robotSpeedTowardsHuman != 0);
+                    robotVisualizationComponent.Rebuild();
+                }
+            }
+
         }
 
         /// <summary>
@@ -134,18 +189,16 @@ namespace CustomController
         /// <param name="humanSpeedTowardsRobot"> [mm/s] </param>
         /// <param name="tcpPosition"></param>
         /// <param name="humanPosition"></param>
-        private void UpdateAllowedSpeed(double humanSpeedTowardsRobot, Vector3 tcpPosition, Vector3 humanPosition)
+        private void UpdateAllowedSpeed(double humanSpeedTowardsRobot)
         {
             // TODO result from calculation is acutally not used
             double allowedSpeedDuringTransientContact = speedCalculator.GetAllowedVelocity(BodyPart.Chest, humanSpeedTowardsRobot, 1);
 
-            double distance = CalculateDistance2D(tcpPosition, humanPosition);
-
-            if (distance < separationDistance)
+            if (humanDistance < separationDistance)
             {
                 this.allowedSpeed = 0.0;
             }
-            else if (this.allowedSpeed != 0.0 && distance < separationDistance * cooldownFactor)
+            else if (this.allowedSpeed != 0.0 && humanDistance < separationDistance * cooldownFactor)
             {
                 this.allowedSpeed *= 0.9;
             }
@@ -191,7 +244,6 @@ namespace CustomController
         {
             try
             {
-
                 string name = "SeparationVisualization_" + component.Name;
                 ISimComponent visualizationComponent = app.World.FindComponent(name);
                 if (visualizationComponent != null)
@@ -238,7 +290,69 @@ namespace CustomController
 
                 IExpressionProperty expressionPropertyCool = (IExpressionProperty)speedMonitoredArea.GetProperty("Radius");
                 expressionPropertyCool.Value = "SeparationDistance*CooldownFactor";
-            } catch (Exception e){ }
+
+                string humanConeName = "SeparationVisualization_HumanCone_" + component.Name;
+                ISimComponent humanVisualizationComponent = app.World.FindComponent(humanConeName);
+                if (humanVisualizationComponent != null)
+                {
+                    app.World.DeleteComponent(humanVisualizationComponent);
+                }
+                createArrow(humanConeName);
+
+                string robotConeName = "SeparationVisualization_RobotCone_" + component.Name;
+                ISimComponent robotVisualizationComponent = app.World.FindComponent(robotConeName);
+                if (robotVisualizationComponent != null)
+                {
+                    app.World.DeleteComponent(robotVisualizationComponent);
+                }
+                createArrow(robotConeName, (IMaterial)app.FindMaterial("green", true), visualizationComponent);
+            }
+            catch (Exception e){}
+        }
+
+        ISimComponent createArrow(string name, IMaterial mat=null, ISimComponent parent=null)
+        {
+
+            ISimComponent arrowBase;
+            if(parent == null)
+            {
+                arrowBase = app.World.CreateComponent(name);
+            } else
+            {
+                arrowBase = parent;
+            }
+            IDoubleProperty arrowLength = (IDoubleProperty) arrowBase.CreateProperty(typeof(Double), PropertyConstraintType.NotSpecified, "ArrowLength");
+            arrowLength.Value = 100.0;
+
+            ICylinderFeature cylinderFeature = arrowBase.RootNode.RootFeature.CreateFeature<ICylinderFeature>();
+            if (parent != null)
+            {
+                cylinderFeature.SetName(name);
+            }
+            if (mat == null)
+            {
+                mat = (IMaterial)app.FindMaterial("red", true);
+            }
+            IMaterialProperty hMaterialPropertyDirection = (IMaterialProperty)cylinderFeature.GetProperty("Material");
+            hMaterialPropertyDirection.Value = mat;
+
+            IExpressionProperty height = (IExpressionProperty) cylinderFeature.GetProperty("Height");
+            height.Value = "ArrowLength {mm}";
+            IExpressionProperty radius = (IExpressionProperty) cylinderFeature.GetProperty("Radius");
+            radius.Value = "45 {mm}";
+
+            ITransformFeature feature = cylinderFeature.CreateFeature<ITransformFeature>();
+            feature.Expression = "Tz(ArrowLength)";
+            
+            IConeFeature coneFeature         = feature.CreateFeature<IConeFeature>();
+            IMaterialProperty hMaterialPropertyDirectionCone= (IMaterialProperty) coneFeature.GetProperty("Material");
+            hMaterialPropertyDirectionCone.Value = mat;
+
+            SetDoubleValueInProperty(coneFeature.GetProperty("BottomRadius"),   100.0);
+            SetDoubleValueInProperty(coneFeature.GetProperty("Height"),         150.0);
+            SetDoubleValueInProperty(coneFeature.GetProperty("TopRadius"),      0.0);
+
+            return arrowBase; 
         }
 
         /// <summary>
@@ -260,8 +374,6 @@ namespace CustomController
 
                     IFeature cylinder = comp.FindFeature("SeparationVisualization");
                     SetDoubleValueInProperty(comp.GetProperty("SeparationDistance"), separationDistance);
-
-                    cylinder.Rebuild();
                 }
             } catch (Exception e) { }
         }
