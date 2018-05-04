@@ -89,7 +89,15 @@ namespace CustomController
                 }
 
                 RobotSection parameter = ConfigReader.readSection(robotName);
-                string cacheKey = getCacheKey(currentPositionJointAngles, pythonState, stapleComponentName, robotName);
+                string stapleCache = "";
+                ISimComponent stapleComponent = app.Value.World.FindComponent(stapleComponentName);
+                if (stapleComponent != null)
+                {
+                    stapleCache = stapleComponent.TransformationInWorld.GetP().ToString(); 
+                }
+
+
+            string cacheKey = getCacheKey(currentPositionJointAngles, pythonState, stapleComponentName, stapleCache, robotName);
                 MotionPlan result;
                 if(jobBrain.TryGetValue(cacheKey, out result)){
                     sendJobDoneEvent(robot, Double.Parse(parameter.velocity.Value), result, pythonState);
@@ -174,9 +182,9 @@ namespace CustomController
                 
         }
 
-        private string getCacheKey(VectorOfDouble currentPositionJointAngles, string goalFrameName, string stapleComponentName, string robotName)
+        private string getCacheKey(VectorOfDouble currentPositionJointAngles, string goalFrameName, string stapleComponentName, string stapleCache, string robotName)
         {
-            string cacheKey = robotName+"_"+stapleComponentName+"_";
+            string cacheKey = robotName+"_"+stapleComponentName+"_"+stapleCache;
             foreach (double pos in currentPositionJointAngles)
             {
                 cacheKey += Math.Round(pos)+"_";
