@@ -1,5 +1,7 @@
 #include "Position.h"
 
+using namespace CSEController;
+
 Position::Position(KDL::Frame frame)
 {
 	this->type = PositionType::FRAME;

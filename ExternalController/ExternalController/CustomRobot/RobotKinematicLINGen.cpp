@@ -1,5 +1,7 @@
 #include "RobotKinematicLINGen.h"
 
+using namespace CSEController;
+
 RobotKinematicLINGen::RobotKinematicLINGen(RobotKinematicManager * kinematic, double cycleTime)
 {
 	this->kinematic = kinematic;

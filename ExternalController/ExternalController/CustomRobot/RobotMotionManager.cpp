@@ -2,6 +2,7 @@
 
 #include "Conversions.h"
 
+using namespace CSEController;
 
 RobotMotionManager::RobotMotionManager(RobotKinematicManager *kinematic, double cycleTime) : state(kinematic->getDOF())
 {

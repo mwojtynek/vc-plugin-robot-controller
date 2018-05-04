@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 using namespace KDL;
+using namespace CSEController;
 
 int RobotKinematicManager::getDOF()
 {

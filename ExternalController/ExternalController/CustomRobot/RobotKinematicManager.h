@@ -18,29 +18,30 @@
 */
 
 // Orocos-KDL Binding
+namespace CSEController {
+	class RobotKinematicManager
+	{
 
-class RobotKinematicManager
-{
+	private:
+		//solvers, pre-initialized
+		KDL::ChainFkSolverPos_recursive *fkpos_solver;
+		KDL::ChainIkSolverPos_LMA *ikpos_solver;
 
-private: 
-	//solvers, pre-initialized
-	KDL::ChainFkSolverPos_recursive *fkpos_solver;
-	KDL::ChainIkSolverPos_LMA *ikpos_solver;
+		KDL::JntArray defaultGuess;
 
-	KDL::JntArray defaultGuess;
-	
-public:
-	KDL::Chain chain;
+	public:
+		KDL::Chain chain;
 
-	int getDOF();
+		int getDOF();
 
-	RobotKinematicManager(std::string urdf_path);
+		RobotKinematicManager(std::string urdf_path);
 
-	~RobotKinematicManager();
+		~RobotKinematicManager();
 
-	int FK(const KDL::JntArray *joints, KDL::Frame *frame);
-	//int SpeedFK(const double * joints, const double * jointsDot, double * twist);
+		int FK(const KDL::JntArray *joints, KDL::Frame *frame);
+		//int SpeedFK(const double * joints, const double * jointsDot, double * twist);
 
-	int IK(const KDL::Frame *frame, const KDL::JntArray * guess, KDL::JntArray *joints);
-};
+		int IK(const KDL::Frame *frame, const KDL::JntArray * guess, KDL::JntArray *joints);
+	};
 
+}

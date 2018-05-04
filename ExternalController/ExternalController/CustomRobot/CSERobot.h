@@ -10,33 +10,36 @@
 
  */
 
-class CSERobot {
-private:
-	RobotKinematicManager *kinematic;
-	RobotMotionManager *motion;
+namespace CSEController {
 
-public:
-	//CSERobot(int id, double *DH_Data, int jointCoint, double maxSpeed = 2.0, double maxAcceleration = 5.0, double maxJerk = 10.0);
-	CSERobot(std::string urdf_path);
-	~CSERobot();
-	
-	//initStuff
-	int reInit(double * pos, double cycleTime);
-	
+	class CSERobot {
+	private:
+		RobotKinematicManager * kinematic;
+		RobotMotionManager *motion;
 
-	//controller
-	//Argumente müssen definiert werden!
-	//int setTask()
-	int addTask(Task *task);
-	int halt();
+	public:
+		//CSERobot(int id, double *DH_Data, int jointCoint, double maxSpeed = 2.0, double maxAcceleration = 5.0, double maxJerk = 10.0);
+		CSERobot(std::string urdf_path);
+		~CSERobot();
 
-	int nextCycle(double * pos, double * vel, double * acc);
-	
-	//low-level kinematic
-	int FK(const double * joints, double * frame);
-	int SpeedFK(const double * joints, const double * jointsDot, double * twist);
-		
-	int IK(const double * frame, double * joints, const double * guess = NULL);
+		//initStuff
+		int reInit(double * pos, double cycleTime);
 
-	int getDOF();
-};
+
+		//controller
+		//Argumente müssen definiert werden!
+		//int setTask()
+		int addTask(Task *task);
+		int halt();
+
+		int nextCycle(double * pos, double * vel, double * acc);
+
+		//low-level kinematic
+		int FK(const double * joints, double * frame);
+		int SpeedFK(const double * joints, const double * jointsDot, double * twist);
+
+		int IK(const double * frame, double * joints, const double * guess = NULL);
+
+		int getDOF();
+	};
+}

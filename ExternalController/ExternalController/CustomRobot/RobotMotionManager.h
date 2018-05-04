@@ -11,30 +11,31 @@
 #include <queue>
 
 // Reflexxes Binding
+namespace CSEController {
+	class RobotMotionManager
+	{
+	private:
 
-class RobotMotionManager
-{
-private:
+		RobotKinematicManager * kinematic;
 
-	RobotKinematicManager *kinematic;
+		Task *currentTask;
+		std::queue<Task *> taskList;
 
-	Task *currentTask;
-	std::queue<Task *> taskList;
 
-	
-	RobotKinematicPTPGen *ptp;
-	RobotKinematicLINGen *lin;
+		RobotKinematicPTPGen *ptp;
+		RobotKinematicLINGen *lin;
 
-public:
-	KDL::JntArrayAcc state;
-	
-	RobotMotionManager(RobotKinematicManager *kinematic, double cycleTime);
-	~RobotMotionManager();
+	public:
+		KDL::JntArrayAcc state;
 
-	int init(KDL::JntArrayAcc *start, double cycleTime);
-	int nextCycle(KDL::JntArrayAcc * newState);
+		RobotMotionManager(RobotKinematicManager *kinematic, double cycleTime);
+		~RobotMotionManager();
 
-	void addTask(Task *newTask);
+		int init(KDL::JntArrayAcc *start, double cycleTime);
+		int nextCycle(KDL::JntArrayAcc * newState);
 
-};
+		void addTask(Task *newTask);
 
+	};
+
+}
