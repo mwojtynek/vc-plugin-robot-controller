@@ -10,20 +10,38 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RobotTester", "RobotTester\
 		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4} = {F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CSEController", "CSEController\CSEController.csproj", "{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}"
+	ProjectSection(ProjectDependencies) = postProject
+		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4} = {F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|x64 = Debug|x64
+		CLR-DLL-InterOP|Any CPU = CLR-DLL-InterOP|Any CPU
+		CLR-DLL-InterOP|x64 = CLR-DLL-InterOP|x64
+		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.Debug|x64.ActiveCfg = Debug|x64
-		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.Debug|x64.Build.0 = Debug|x64
+		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.CLR-DLL-InterOP|Any CPU.ActiveCfg = CLR-DLL-InterOP|x64
+		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.CLR-DLL-InterOP|Any CPU.Build.0 = CLR-DLL-InterOP|x64
+		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.CLR-DLL-InterOP|x64.ActiveCfg = CLR-DLL-InterOP|Win32
+		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.CLR-DLL-InterOP|x64.Build.0 = CLR-DLL-InterOP|Win32
+		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.Release|Any CPU.ActiveCfg = Release|Win32
 		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.Release|x64.ActiveCfg = Release|x64
 		{F73C655E-1FBB-4811-A2B5-A5EFA219C4B4}.Release|x64.Build.0 = Release|x64
-		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.Debug|x64.ActiveCfg = Debug|x64
-		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.Debug|x64.Build.0 = Debug|x64
+		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.CLR-DLL-InterOP|Any CPU.ActiveCfg = CLR-DLL-InterOP|x64
+		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.CLR-DLL-InterOP|x64.ActiveCfg = CLR-DLL-InterOP|x64
+		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.Release|Any CPU.ActiveCfg = Release|x64
 		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.Release|x64.ActiveCfg = Release|x64
 		{49BF4FAF-AB4B-4286-82F4-43CC9597AD31}.Release|x64.Build.0 = Release|x64
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.CLR-DLL-InterOP|Any CPU.ActiveCfg = Release|Any CPU
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.CLR-DLL-InterOP|Any CPU.Build.0 = Release|Any CPU
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.CLR-DLL-InterOP|x64.ActiveCfg = Release|Any CPU
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.CLR-DLL-InterOP|x64.Build.0 = Release|Any CPU
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.Release|Any CPU.Build.0 = Release|Any CPU
+		{70FD9E8A-D2AD-4BE4-B285-714CDBE10824}.Release|x64.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
