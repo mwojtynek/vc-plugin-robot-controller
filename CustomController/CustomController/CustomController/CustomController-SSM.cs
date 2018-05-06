@@ -36,7 +36,7 @@ namespace CustomController
         // Statistics
         private double humanDistance = 0.0;
         private double humanAngle = 0.0;
-        
+
         // Speed Values
         private double m_robot = 30;
         private double m_payload = 0;
@@ -131,6 +131,7 @@ namespace CustomController
             }
 
             separationDistance = Math.Max(separationDistance, minimumSeparationDistance);
+            //separationDistance = 1126;
             lastSeparationDistance = separationDistance;
 
 
@@ -192,8 +193,7 @@ namespace CustomController
         private void UpdateAllowedSpeed(double humanSpeedTowardsRobot)
         {
             // TODO result from calculation is acutally not used
-            double allowedSpeedDuringTransientContact = speedCalculator.GetAllowedVelocity(BodyPart.Chest, humanSpeedTowardsRobot, 1);
-
+            double allowedSpeedDuringTransientContact = speedCalculator.GetAllowedVelocity(BodyPart.Chest, humanSpeedTowardsRobot, 1);    
             if (humanDistance < separationDistance)
             {
                 this.allowedSpeed = 0.0;
@@ -360,6 +360,7 @@ namespace CustomController
         /// </summary>
         private void UpdateVisualization()
         {
+            
             try
             {
                 ISimComponent comp = app.World.FindComponent("SeparationVisualization_" + component.Name);
@@ -374,6 +375,7 @@ namespace CustomController
 
                     IFeature cylinder = comp.FindFeature("SeparationVisualization");
                     SetDoubleValueInProperty(comp.GetProperty("SeparationDistance"), separationDistance);
+
                 }
             } catch (Exception e) { }
         }

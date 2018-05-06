@@ -48,6 +48,8 @@ namespace CustomController
         private bool moving = false;
 
         private Vector joints;
+        
+        private double lostTime = 0;
 
         public double DemandedSpeed { get => demandedSpeed;
                                       set => demandedSpeed=value; }
@@ -86,7 +88,7 @@ namespace CustomController
         {
             joints = ArrangeJointsToControllerOrder(manip.getConfiguration());
         }
-
+        
         private void ElapsedCallback(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == "Elapsed")
@@ -98,6 +100,14 @@ namespace CustomController
                     UpdateVisualization();
                     UpdateStatisticsComponent();
                     RobotCycle();
+
+                    double restriction = 1 - (appliedSpeed / demandedSpeed);
+                    lostTime += deltaTime * restriction;
+
+                    SetStatisticValue(component, "stopTime", lostTime);
+                    //SetStatisticValue(component, "appliedSpeed", appliedSpeed);
+                    //SetStatisticValue(component, "restriction", restriction);
+
                 }
             }
         }
@@ -166,7 +176,8 @@ namespace CustomController
         {
             moving = false;
             finished = true;
-        }
+            lostTime = 0;
+    }
 
         private Vector ArrangeJointsToControllerOrder(Vector joints)
         {
