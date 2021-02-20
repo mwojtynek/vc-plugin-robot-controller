@@ -15,7 +15,7 @@ https://youtu.be/zcMzQt0ByGs
 At each simulationrun, the robots are instantiated and the 3D scene is passed to perform path planning and collision avoidance on the current simulation layout.
 A motion request between a pair of task frames is managed at run-time by the MotionPlanningManager for each partial movement of a robot task.`<br>
 
-#### #ISimPlugin <br>
+#### ISimPlugin <br>
 `is used to get full access to the simulation scene, the properties of a component and the user-interface.`<br>
 
 #### RobotController<br>
