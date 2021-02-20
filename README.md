@@ -11,8 +11,8 @@ https://youtu.be/zcMzQt0ByGs
 `provides access from the highlevel Python programming API to the low-level infrastructure`<br>
 
 #### MotionPlanningManager<br>
-`For convenient robot operating, the MotionPlanningManager organizes the motion requests from one or multiple robots in the simulated scene. 
-At each simulationrun, the robots are instantiated and the 3D scene is passed to perform path planning and collision avoidance on the current simulation layout.
+`For convenient robot operating, the MotionPlanningManager organizes the motion in the simulated scene. The plugin is usable with one or multiple robots (tested with 4 simultanous robots).
+At each simulation run, the robots are instantiated, and the 3D scene is passed to perform path planning and collision avoidance on the current simulation layout.
 A motion request between a pair of task frames is managed at run-time by the MotionPlanningManager for each partial movement of a robot task.`<br>
 
 #### ISimPlugin <br>
