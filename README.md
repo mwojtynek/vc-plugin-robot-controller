@@ -11,7 +11,7 @@ https://youtu.be/zcMzQt0ByGs
 `provides access from the highlevel Python programming API to the low-level infrastructure`<br>
 
 #### MotionPlanningManager<br>
-`For a convenient robot operating, the MotionPlanningManager organizes the motion requests from one or multiple robots in the simulated scene. 
+`For convenient robot operating, the MotionPlanningManager organizes the motion requests from one or multiple robots in the simulated scene. 
 At each simulationrun, the robots are instantiated and the 3D scene is passed to perform path planning and collision avoidance on the current simulation layout.
 A motion request between a pair of task frames is managed at run-time by the MotionPlanningManager for each partial movement of a robot task.`<br>
 
